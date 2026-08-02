@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    name: fmt · vet · test · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Formatting
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Tests
+        run: go test ./... -race
+
+      - name: Build
+        run: go build -o capsule ./cmd/capsule
+
+      - name: CLI smoke test
+        run: |
+          ./capsule version
+          ./capsule --help
+          # ubuntu-latest has Docker, so doctor should find a healthy runtime
+          # and a valid capsule.toml in this repo.
+          ./capsule doctor
+          ./capsule up --dry-run
+
+  image:
+    name: docker build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t capsule:ci .
+
+      - name: Run it
+        run: docker run --rm capsule:ci version

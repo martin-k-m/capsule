@@ -1,0 +1,12 @@
+# Compiled binaries
+/capsule
+/capsule.exe
+/dist/
+/out/
+
+# Go test and coverage output
+*.test
+*.out
+
+# JetBrains
+.idea/

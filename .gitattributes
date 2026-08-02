@@ -1,0 +1,14 @@
+# Keep line endings consistent everywhere.
+#
+# Git for Windows defaults to core.autocrlf=true, which rewrites tracked text
+# files to CRLF on checkout. capsule generates capsule.toml with LF and compares
+# shell snippets it builds, so pinning the working tree to LF keeps what is
+# committed, what is generated, and what is on disk in agreement.
+* text=auto eol=lf
+
+# The shell scripts capsule builds are always LF — a CRLF here would reach the
+# container as a stray \r in a command.
+*.sh text eol=lf
+
+*.bat text eol=crlf
+*.cmd text eol=crlf
