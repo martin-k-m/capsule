@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -97,10 +98,14 @@ a = "/a"
 	}
 }
 
-func TestHostPathNormalisesWindowsSeparators(t *testing.T) {
-	// Backslashes confuse the runtime's src:dst splitting.
-	if got := HostPath(`C:\Users\m\proj`); strings.Contains(got, `\`) {
-		t.Errorf("HostPath kept backslashes: %q", got)
+func TestHostPathUsesForwardSlashes(t *testing.T) {
+	// A bind mount is split on ":", and a host separator that is not "/" confuses
+	// it. The conversion is deliberately OS-dependent: on Unix a backslash is a
+	// legal filename character and must survive untouched, so this asserts the
+	// contract against a path built the way the OS actually builds one.
+	in := filepath.Join("home", "m", "proj")
+	if got := HostPath(in); got != "home/m/proj" {
+		t.Errorf("HostPath(%q) = %q, want %q", in, got, "home/m/proj")
 	}
 }
 
