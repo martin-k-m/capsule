@@ -1,0 +1,107 @@
+# capsule.toml
+
+One file per project, read from the directory you run `capsule` in. `capsule
+init` writes a starter version with everything commented.
+
+```toml
+name    = "myapp"
+image   = "golang:1-alpine"
+shell   = "/bin/sh"
+workdir = "/workspace"
+
+ports    = ["8080:8080"]
+packages = ["git", "make"]
+
+[env]
+CGO_ENABLED = "0"
+
+# The only state a capsule keeps.
+[persist]
+gomod = "/go/pkg/mod"
+```
+
+## Keys
+
+| Key | Type | Default | Meaning |
+| :-- | :-- | :-- | :-- |
+| `image` | string | **required** | Base image the capsule runs |
+| `name` | string | directory name | Capsule name; used for the container name, hostname and labels |
+| `shell` | string | `/bin/sh` | Shell to drop into |
+| `workdir` | string | `/workspace` | Where the project is mounted inside the container |
+| `ports` | array | none | Published as `"host:container"` |
+| `packages` | array | none | Installed at start with the image's package manager |
+| `[env]` | table | none | Environment variables inside the capsule |
+| `[persist]` | table | none | Named volumes that survive teardown |
+
+### `name`
+
+Must start with a letter or digit and contain only letters, digits, `.`, `-` or
+`_` — the same constraint the container runtime puts on a name component. It is
+what `capsule shell` and `capsule down` match on, so two projects sharing a name
+will find each other's capsules.
+
+### `workdir`
+
+Must be absolute. Your project directory is bind-mounted here, so it is the one
+path inside the capsule whose contents outlive it.
+
+### `ports`
+
+Each entry is `"host:container"`, both numeric and in 1–65535. `"8080"` alone is
+rejected rather than guessed at, because guessing which side you meant would be
+a coin flip.
+
+### `packages`
+
+Installed at start using whichever package manager the image actually has —
+`apk`, then `apt-get`, then `dnf`. If the image has none, capsule says so on
+stderr and carries on rather than failing the capsule or pretending the packages
+are there.
+
+This is a convenience for a one-off tool, not a build step. It runs on **every**
+`capsule up`, so if a capsule needs the same five packages every time, bake them
+into an image instead and save yourself the wait.
+
+### `[env]`
+
+Keys become `-e KEY=VALUE`. Keys may not contain `=`, spaces or tabs. Values are
+passed through verbatim; quote anything containing a `#`, or it reads as the
+start of a comment.
+
+### `[persist]`
+
+Each entry maps a **named volume** to an absolute path inside the container:
+
+```toml
+[persist]
+gomod = "/go/pkg/mod"
+```
+
+These are the only things that survive teardown, and they must be named
+explicitly — capsule never infers that something is worth keeping.
+
+The presets `capsule init` writes always persist a *cache*, never source or build
+output. That is the line worth holding: re-downloading a dependency set is pure
+waste, so it is worth keeping, while anything a build produced is reproducible
+and should go away with the capsule.
+
+Volume names follow the same rules as `name`. The volume is created on first use.
+
+## Supported syntax
+
+capsule reads a deliberately small subset of TOML — enough for the schema above,
+small enough to audit in one sitting, and small enough to need no dependency:
+
+- `#` comments, on their own line or trailing a value
+- `[table]` headers, one level deep
+- `key = "basic string"` and `key = 'literal string'`
+- `key = ["a", "b"]` arrays, which may span several lines
+- bare tokens such as `true` or `8080`, kept as their literal text
+
+Escapes `\n`, `\t`, `\\` and `\"` are interpreted inside `"basic strings"` and
+left alone inside `'literal strings'` — so a Windows-style path is easiest to
+write in single quotes.
+
+Anything outside this subset is a parse error naming the line, rather than a key
+that silently does nothing. Unknown keys and unknown `[sections]` are errors too,
+so a typo in `wokdir` tells you instead of quietly falling back to the default.

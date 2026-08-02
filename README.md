@@ -130,6 +130,15 @@ Mounting that socket gives the container root-equivalent control of the host.
 That is a real trade, not a formality — for everyday use, prefer the native
 binary.
 
+## Documentation
+
+| Document | What it covers |
+| :-- | :-- |
+| [docs/getting-started.md](docs/getting-started.md) | Install, first capsule, running one command |
+| [docs/configuration.md](docs/configuration.md) | Every `capsule.toml` key |
+| [docs/commands.md](docs/commands.md) | Every command and flag |
+| [docs/architecture.md](docs/architecture.md) | How it works, and why it is built this way |
+
 ## Development
 
 ```sh
