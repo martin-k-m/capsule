@@ -52,14 +52,19 @@ detection are both there because a dependency was not worth it.
 
 ```
 cmd/capsule/       main, exit-code passthrough
-internal/config/   capsule.toml: hand-rolled TOML-subset reader + validation
+internal/version/  capsule's own version, and the `capsule = ">=x.y"` comparison
+internal/config/   capsule.toml: discovery, hand-rolled TOML-subset reader + validation
 internal/runtime/  container CLI detection, argv construction, ps filters
 internal/cli/      command dispatch: init, up, shell, list, down, doctor
 ```
 
-`internal/config` and `internal/runtime` are pure and directly tested.
-`RunArgs` is where the tool's entire security surface lives, so it stays a pure
-function that can be asserted on without Docker present.
+`internal/version`, `internal/config` and `internal/runtime` are directly tested;
+only `config.Find` and `config.Load` touch the filesystem. `RunArgs` is where the
+tool's entire security surface lives, so it stays a pure function that can be
+asserted on without Docker present.
+
+`internal/cli` is testable too, and has tests. Its pure parts, the `init`
+templates in particular, are the ones worth covering.
 
 ## Conventions
 
@@ -74,3 +79,13 @@ function that can be asserted on without Docker present.
   understood.
 - **No TTY guessing.** `-it` is requested only when stdin *and* stdout are both
   terminals, so capsule works unchanged in CI.
+- **The project is the config's directory.** `capsule.toml` is found by walking
+  upward, and the directory holding it is what gets bind-mounted. Never mount
+  `os.Getwd()`; the same project must produce the same capsule from any
+  subdirectory.
+- **Version before schema.** A config's `capsule` requirement is checked ahead of
+  its sections, keys and syntax. An old binary reading a new file must say so,
+  not report an unknown key.
+- **Nothing free-form reaches argv in flag position.** `image` is the only
+  candidate and is validated against a leading `-`. Anything new that lands in
+  argv before the image name needs the same treatment.

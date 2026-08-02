@@ -6,6 +6,7 @@ import (
 
 	"github.com/martin-k-m/capsule/internal/config"
 	"github.com/martin-k-m/capsule/internal/runtime"
+	"github.com/martin-k-m/capsule/internal/version"
 )
 
 // report accumulates check results. A "note" is something the user should know
@@ -45,12 +46,18 @@ func runDoctor(args []string) error {
 		r.fail("runtime daemon", "not reachable. Is the "+rt.Name()+" daemon running?")
 	}
 
-	_, c, err := projectContext()
+	dir, c, err := projectContext()
 	if err != nil {
 		r.fail(config.FileName, err.Error())
 		return r.finish()
 	}
 	r.ok(config.FileName, fmt.Sprintf("%s → %s", c.Name, c.Image))
+	// capsule.toml is found by walking upward, so which directory a capsule
+	// mounts is worth stating rather than assuming it is the one you are in.
+	r.ok("project", fmt.Sprintf("%s → %s", dir, c.Workdir))
+	if c.Requirement != "" {
+		r.ok("requires", fmt.Sprintf("capsule %s, this is capsule %s", c.Requirement, version.Current))
+	}
 
 	if rt.Has("image", "inspect", c.Image) {
 		r.ok("image", c.Image+" present locally")

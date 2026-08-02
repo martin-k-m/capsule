@@ -4,6 +4,9 @@
 # workdir, drops you into a shell, and destroys the container on exit.
 # Nothing survives except the volumes named under [persist].
 
+# The oldest capsule that can read this file.
+capsule = ">=0.2"
+
 name    = "capsule"
 image   = "golang:1-alpine"
 shell   = "/bin/sh"

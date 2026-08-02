@@ -39,12 +39,18 @@ You are now inside a container with your project mounted at `/workspace`. Instal
 things, break things, experiment. Type `exit` and the container is destroyed,
 along with anything you installed into it.
 
-capsule prints what will survive before it starts, every time:
+capsule prints what it mounts and what will survive before it starts, every time:
 
 ```
 capsule: myapp on golang:1-alpine via docker
+capsule: mounting /home/m/myapp at /workspace
 capsule: on exit only these volumes survive: gomod
 ```
+
+You do not have to be at the project root. capsule looks for `capsule.toml` in
+the current directory and then in each parent, and mounts the directory that
+holds it, so `capsule up` from `src/api/handlers` still gives you the whole
+project.
 
 ## Running one command
 

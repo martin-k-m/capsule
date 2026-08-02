@@ -16,8 +16,12 @@ flags, and `capsule version` prints the version.
 | [`down`](#capsule-down) | Destroy capsules that outlived their shell |
 | [`doctor`](#capsule-doctor) | Check the runtime, config, image and volumes |
 
-Every command except `init`, `list` and `down --all` reads `capsule.toml` from
-the current directory.
+Every command except `init`, `list` and `down --all` reads the nearest
+`capsule.toml`, searching the current directory and then each parent. The
+directory holding that file is the project, and it is what gets mounted, so
+these commands work from anywhere inside a project rather than only at its root.
+
+`init` is the exception: it writes into the current directory, wherever that is.
 
 ---
 
@@ -36,11 +40,21 @@ Python, `package.json` gives Node. Anything else gets `debian:bookworm-slim`.
 Each preset persists that ecosystem's package cache and nothing else.
 
 The generated file is parsed before it is written, so `init` cannot produce
-something `up` would then reject.
+something `up` would then reject. It carries a `capsule = ">=MAJOR.MINOR"` line
+naming the version that wrote it.
+
+`init` writes into the current directory. Since every other command searches
+upward, running it in a subdirectory of a project that already has a
+`capsule.toml` takes over from the one above, and `init` says so on stderr:
+
+```
+capsule: note: this takes over from /home/m/proj/capsule.toml, which is what `capsule up` used here until now
+```
 
 ## `capsule up`
 
-Starts an ephemeral capsule with the project bind-mounted at `workdir`.
+Starts an ephemeral capsule with the directory holding `capsule.toml`
+bind-mounted at `workdir`.
 
 | Flag | Meaning |
 | :-- | :-- |
@@ -55,6 +69,17 @@ capsule up --dry-run          # show the exact command, run nothing
 
 Everything after `--` is the command to run. With no command, you get the shell
 from `capsule.toml`.
+
+Before starting, `up` names what it mounts and what will outlive the capsule:
+
+```
+capsule: myapp on golang:1-alpine via docker
+capsule: mounting /home/m/proj at /workspace
+capsule: on exit only these volumes survive: gomod
+```
+
+The mounted directory is the one holding `capsule.toml`, which is not
+necessarily the one you ran `capsule` from, which is why it gets named.
 
 The exit status is the container's own, so `capsule up -- <cmd>` can be used
 anywhere `<cmd>` could.
@@ -99,9 +124,10 @@ Remove them with your runtime directly (`docker volume rm <name>`).
 ## `capsule doctor`
 
 Checks, in order: the container runtime and its version, whether the daemon is
-reachable, that `capsule.toml` parses, whether the image is present locally, and
-which persisted volumes already exist. It also notes any capsule of this project
-currently running.
+reachable, that `capsule.toml` parses, which directory it will mount and where,
+the file's `capsule` requirement if it declares one, whether the image is present
+locally, and which persisted volumes already exist. It also notes any capsule of
+this project currently running.
 
 Each line is one of:
 

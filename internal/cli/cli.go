@@ -13,11 +13,8 @@ import (
 	"text/tabwriter"
 
 	"github.com/martin-k-m/capsule/internal/config"
+	"github.com/martin-k-m/capsule/internal/version"
 )
-
-// Version is stamped at build time with
-// -ldflags "-X github.com/martin-k-m/capsule/internal/cli.Version=v0.2.0".
-var Version = "0.1.0"
 
 // ExitError carries a child process's status so capsule can exit with the same
 // code the command inside the capsule returned.
@@ -52,7 +49,7 @@ func Run(args []string) error {
 		usage(os.Stdout)
 		return nil
 	case "-V", "--version", "version":
-		fmt.Println("capsule " + Version)
+		fmt.Println("capsule " + version.Current)
 		return nil
 	}
 
@@ -90,9 +87,16 @@ func newFlagSet(name string) *flag.FlagSet {
 	return fs
 }
 
-// projectContext loads the capsule.toml for the current directory.
+// projectContext finds the nearest capsule.toml and loads it, returning the
+// directory that holds it. That directory, not the working directory, is what
+// gets bind-mounted, so running capsule from a subdirectory of a project gives
+// the whole project rather than a slice of it.
 func projectContext() (string, *config.Capsule, error) {
-	dir, err := os.Getwd()
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", nil, err
+	}
+	dir, err := config.Find(cwd)
 	if err != nil {
 		return "", nil, err
 	}

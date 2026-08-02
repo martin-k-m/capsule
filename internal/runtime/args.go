@@ -21,23 +21,51 @@ func ContainerName(capsuleName, id string) string {
 	return "capsule-" + capsuleName + "-" + id
 }
 
+// RunOptions is everything that decides a capsule's argv.
+//
+// It is a struct rather than a parameter list because these are the inputs to
+// the tool's entire security surface, and a call reading
+// RunArgs(c, dir, id, false, nil) does not say which of those the reader should
+// be checking.
+type RunOptions struct {
+	// Capsule is the parsed capsule.toml.
+	Capsule *config.Capsule
+
+	// ProjectDir is the host directory bind-mounted at the capsule's workdir. It
+	// is the directory holding capsule.toml, which is not necessarily the one the
+	// developer ran capsule from.
+	ProjectDir string
+
+	// ID is the random suffix that keeps two capsules from the same project from
+	// claiming one container name.
+	ID string
+
+	// Interactive requests a TTY. Only true when capsule has one on both ends.
+	Interactive bool
+
+	// Cmd is the command to run instead of dropping into a shell.
+	Cmd []string
+}
+
 // RunArgs builds the argv for `docker run` / `podman run`.
 //
 // It is a pure function on purpose: the exact flags a capsule.toml turns into
 // are the whole security surface of this tool, so they are testable without a
 // container runtime anywhere in sight.
-func RunArgs(c *config.Capsule, projectDir, id string, interactive bool, cmd []string) []string {
+func RunArgs(o RunOptions) []string {
+	c := o.Capsule
+
 	args := []string{"run", "--rm"}
-	if interactive {
+	if o.Interactive {
 		args = append(args, "-it")
 	}
 
 	args = append(args,
-		"--name", ContainerName(c.Name, id),
+		"--name", ContainerName(c.Name, o.ID),
 		"--hostname", c.Name,
 		"--label", Label+"=1",
 		"--label", LabelName+"="+c.Name,
-		"-v", HostPath(projectDir)+":"+c.Workdir,
+		"-v", HostPath(o.ProjectDir)+":"+c.Workdir,
 		"-w", c.Workdir,
 	)
 
@@ -51,8 +79,10 @@ func RunArgs(c *config.Capsule, projectDir, id string, interactive bool, cmd []s
 		args = append(args, "-v", v+":"+c.Persist[v])
 	}
 
+	// c.Image is validated not to start with "-", so it cannot turn this position
+	// into a flag the capsule.toml author chose.
 	args = append(args, c.Image)
-	return append(args, entrypoint(c, cmd)...)
+	return append(args, entrypoint(c, o.Cmd)...)
 }
 
 // HostPath normalises a host path for a bind mount. Docker accepts forward

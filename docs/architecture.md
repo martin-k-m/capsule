@@ -2,7 +2,8 @@
 
 ```
 cmd/capsule/       main, exit-code passthrough
-internal/config/   capsule.toml: TOML-subset reader + validation
+internal/version/  capsule's own version, compared against a config's requirement
+internal/config/   capsule.toml: discovery, TOML-subset reader + validation
 internal/runtime/  runtime detection, argv construction, ps filters
 internal/cli/      command dispatch: init, up, shell, list, down, doctor
 ```
@@ -61,14 +62,25 @@ inference that decides something is worth keeping.
 
 ## The pure core
 
-`internal/config` and `internal/runtime` are pure functions with direct tests.
+`internal/config` and `internal/runtime` are functions with direct tests, and
+everything that decides what a `capsule.toml` becomes is pure. Only
+`config.Find` and `config.Load` touch the filesystem, and only to locate and
+read the file.
+
 `RunArgs` in particular is the function that turns a `capsule.toml` into a
 runtime argv, which makes it this tool's entire security surface: what gets
 mounted, what is exposed, what runs. Keeping it pure means the exact flags a
 config produces are asserted in tests that need no container runtime present, on
-any platform, in milliseconds.
+any platform, in milliseconds. It takes a `RunOptions` struct rather than a
+parameter list, because a call reading `RunArgs(c, dir, id, false, nil)` does not
+say which of those a reviewer should be checking.
 
-Two properties are enforced by test rather than convention:
+`image` is the only free-form value in a `capsule.toml` that reaches the runtime
+in flag position, so it is validated not to start with `-`. Everything else is
+either prefixed, numeric, required to be an absolute path, or lands after the
+image where the runtime has stopped parsing flags.
+
+Three properties are enforced by test rather than convention:
 
 - **Determinism.** Map iteration order never reaches the user. Environment
   variables and persisted volumes go through sorted key order, so the same
@@ -76,6 +88,23 @@ Two properties are enforced by test rather than convention:
 - **Quoting.** Package names and commands reach the container shell as properly
   quoted words. The bootstrap script is generated as a single line, so
   `--dry-run` output stays copy-pasteable.
+- **Ordering.** A config's `capsule` requirement is checked before its sections,
+  its keys and even its syntax, so an old capsule reading a new file says which
+  it is rather than reporting a line number nobody can act on.
+
+## Finding the config
+
+`capsule.toml` is found by walking upward from the working directory, the way
+`git` finds `.git` and `cargo` finds `Cargo.toml`. The directory holding it is
+the project, and that directory is what gets bind-mounted.
+
+The alternative, mounting the working directory, means the same project produces
+a different capsule depending on which terminal tab you are in: run `capsule up`
+from `src/api` and the capsule cannot see `go.mod`. A project is a fixed thing,
+so the mount source should be a fixed thing too.
+
+`capsule init` deliberately does not walk. It writes where you are, and says on
+stderr when that shadows a config above.
 
 ## Honest degradation
 

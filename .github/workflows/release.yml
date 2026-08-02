@@ -73,7 +73,7 @@ jobs:
         run: |
           out="capsule-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
           go build -trimpath \
-            -ldflags "-s -w -X github.com/martin-k-m/capsule/internal/cli.Version=${GITHUB_REF_NAME}" \
+            -ldflags "-s -w -X github.com/martin-k-m/capsule/internal/version.Current=${GITHUB_REF_NAME}" \
             -o "$out" ./cmd/capsule
           echo "ASSET=$out" >> "$GITHUB_ENV"
 

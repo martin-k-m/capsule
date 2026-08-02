@@ -36,7 +36,13 @@ func runUp(args []string) error {
 	// for `-it` in CI is the single most common way a container tool fails with
 	// an error that has nothing to do with the user's project.
 	interactive := len(cmd) == 0 && isTerminal(os.Stdin) && isTerminal(os.Stdout)
-	runArgs := runtime.RunArgs(c, dir, id, interactive, cmd)
+	runArgs := runtime.RunArgs(runtime.RunOptions{
+		Capsule:     c,
+		ProjectDir:  dir,
+		ID:          id,
+		Interactive: interactive,
+		Cmd:         cmd,
+	})
 
 	if *dry {
 		fmt.Println(runtime.Display(rt.Name(), runArgs))
@@ -51,6 +57,10 @@ func runUp(args []string) error {
 	}
 
 	fmt.Fprintf(os.Stderr, "capsule: %s on %s via %s\n", c.Name, c.Image, rt.Name())
+	// The mounted directory is the one holding capsule.toml, which is not
+	// necessarily the one you ran capsule from. Naming it costs a line and saves
+	// wondering why a sibling directory is visible inside the capsule.
+	fmt.Fprintf(os.Stderr, "capsule: mounting %s at %s\n", dir, c.Workdir)
 	fmt.Fprintf(os.Stderr, "capsule: %s\n", survivalNote(c))
 
 	if err := rt.Exec(runArgs...); err != nil {

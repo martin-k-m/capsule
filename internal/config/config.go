@@ -8,10 +8,18 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/martin-k-m/capsule/internal/version"
 )
 
 // FileName is the per-project capsule definition capsule looks for.
 const FileName = "capsule.toml"
+
+// RequirementKey names the oldest capsule that can read a file, written
+// `capsule = ">=0.2"`. It is checked before anything else in the document so a
+// file from a newer capsule says so, instead of failing on whichever key this
+// build happens not to know yet.
+const RequirementKey = "capsule"
 
 // Defaults applied when capsule.toml leaves a field out.
 const (
@@ -32,6 +40,10 @@ type Capsule struct {
 	Ports    []string
 	Packages []string
 
+	// Requirement is the file's `capsule` key, empty when it declares none. It
+	// has already been checked against this build by the time a caller sees it.
+	Requirement string
+
 	// Env is passed into the container as -e KEY=VALUE.
 	Env map[string]string
 
@@ -47,9 +59,33 @@ var (
 	rootKeys = map[string]bool{
 		"name": true, "image": true, "shell": true,
 		"workdir": true, "ports": true, "packages": true,
+		RequirementKey: true,
 	}
 	listKeys = map[string]bool{"ports": true, "packages": true}
 )
+
+// Find returns the directory holding the nearest capsule.toml, starting at dir
+// and walking upward.
+//
+// A project is described by the directory its capsule.toml sits in, not by the
+// directory you happen to be standing in, so `capsule up` from three levels down
+// mounts the project rather than a fragment of it.
+func Find(dir string) (string, error) {
+	d, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(d, FileName)); err == nil {
+			return d, nil
+		}
+		parent := filepath.Dir(d)
+		if parent == d {
+			return "", fmt.Errorf("no %s in %s or any parent directory, run `capsule init` to create one", FileName, dir)
+		}
+		d = parent
+	}
+}
 
 // Load reads and validates capsule.toml from dir.
 func Load(dir string) (*Capsule, error) {
@@ -73,6 +109,21 @@ func Load(dir string) (*Capsule, error) {
 func Parse(src, defaultName string) (*Capsule, error) {
 	doc, err := parseTOML(src)
 	if err != nil {
+		// A file written for a newer capsule may use syntax this reader does not
+		// know at all, and "line 12: expected `key = value`" is not something its
+		// author can act on when the real answer is that this capsule is too old.
+		if verr := requirementFromText(src); verr != nil {
+			return nil, verr
+		}
+		return nil, err
+	}
+
+	// Before the sections and before the keys: everything below this line
+	// assumes the schema of *this* capsule, and saying "unknown key" about a key
+	// a newer capsule understands perfectly well sends the reader hunting for a
+	// typo that is not there.
+	requirement, err := checkRequirement(doc[""])
+	if err != nil {
 		return nil, err
 	}
 
@@ -85,11 +136,12 @@ func Parse(src, defaultName string) (*Capsule, error) {
 	}
 
 	c := &Capsule{
-		Name:    defaultName,
-		Shell:   DefaultShell,
-		Workdir: DefaultWorkdir,
-		Env:     map[string]string{},
-		Persist: map[string]string{},
+		Name:        defaultName,
+		Shell:       DefaultShell,
+		Workdir:     DefaultWorkdir,
+		Requirement: requirement,
+		Env:         map[string]string{},
+		Persist:     map[string]string{},
 	}
 
 	root := doc[""]
@@ -105,6 +157,8 @@ func Parse(src, defaultName string) (*Capsule, error) {
 			return nil, fmt.Errorf("%q must be a string", key)
 		}
 		switch key {
+		case RequirementKey:
+			// Already checked, ahead of every other key in the file.
 		case "name":
 			c.Name = v.str
 		case "image":
@@ -142,9 +196,86 @@ func Parse(src, defaultName string) (*Capsule, error) {
 	return c, nil
 }
 
+// checkRequirement reads the `capsule` key out of a root table and reports
+// whether this build satisfies it.
+func checkRequirement(root table) (string, error) {
+	v, ok := root[RequirementKey]
+	if !ok {
+		return "", nil
+	}
+	if v.isList {
+		return "", fmt.Errorf("%q must be a string", RequirementKey)
+	}
+	if err := satisfies(v.str); err != nil {
+		return "", err
+	}
+	return v.str, nil
+}
+
+// satisfies compares a `capsule` requirement against the running build.
+//
+// Only ">=" is accepted. A file states the oldest capsule that can read it,
+// which is a fact about the file; pinning an exact version or excluding a range
+// would instead lock a config away from capsules perfectly able to read it.
+func satisfies(spec string) error {
+	spec = strings.TrimSpace(spec)
+	rest, ok := strings.CutPrefix(spec, ">=")
+	if !ok {
+		return fmt.Errorf("%s = %q must be written \">=MAJOR.MINOR\", for example %q",
+			RequirementKey, spec, ">="+version.Series())
+	}
+	want, err := version.Parse(rest)
+	if err != nil {
+		return fmt.Errorf("%s = %q: %w", RequirementKey, spec, err)
+	}
+	have, err := version.Parse(version.Current)
+	if err != nil {
+		// A build stamped with something unreadable is this binary's problem, not
+		// the config author's. Refusing every capsule.toml over it would be worse
+		// than trusting the file.
+		return nil
+	}
+	if have.Less(want) {
+		return fmt.Errorf("needs capsule %s, but this is capsule %s; upgrade from https://github.com/martin-k-m/capsule/releases",
+			spec, version.Current)
+	}
+	return nil
+}
+
+// requirementFromText finds a `capsule` requirement in raw capsule.toml text,
+// for the case where the document did not parse at all. It returns an error only
+// when the file both declares a requirement and this build fails it, so a plain
+// syntax error still reports as a syntax error.
+func requirementFromText(src string) error {
+	for _, line := range strings.Split(strings.ReplaceAll(src, "\r\n", "\n"), "\n") {
+		line = strings.TrimSpace(stripComment(line))
+		if strings.HasPrefix(line, "[") {
+			break // a root key precedes every table, so there is nothing left to find
+		}
+		key, raw, ok := strings.Cut(line, "=")
+		if !ok || strings.TrimSpace(key) != RequirementKey {
+			continue
+		}
+		spec, err := parseScalar(raw)
+		if err != nil {
+			return nil
+		}
+		return satisfies(spec)
+	}
+	return nil
+}
+
 func (c *Capsule) validate() error {
-	if strings.TrimSpace(c.Image) == "" {
+	image := strings.TrimSpace(c.Image)
+	if image == "" {
 		return fmt.Errorf("`image` is required: set it to the base image the capsule runs")
+	}
+	// image is the one free-form config string that reaches the runtime in flag
+	// position, so a leading dash there is a flag the capsule.toml author gets to
+	// choose. Nothing else in this file lands anywhere a dash would be read as
+	// one, which is why this check has no counterpart for the other keys.
+	if strings.HasPrefix(image, "-") {
+		return fmt.Errorf("image %q must not start with \"-\": it is passed to the container runtime as an argument, where a leading dash would be read as a flag", c.Image)
 	}
 	if !nameRE.MatchString(c.Name) {
 		return fmt.Errorf("invalid name %q: use letters, digits, dot, dash or underscore", c.Name)

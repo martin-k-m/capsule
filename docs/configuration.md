@@ -1,9 +1,18 @@
 # capsule.toml
 
-One file per project, read from the directory you run `capsule` in. `capsule
-init` writes a starter version with everything commented.
+One file per project. capsule looks for it in the directory you run it from and
+then in each parent, taking the first one it finds, so any command works from
+anywhere inside the project. `capsule init` writes a starter version with
+everything commented.
+
+The directory holding `capsule.toml` is the project: it is what gets
+bind-mounted at `workdir`, and its name is the default capsule `name`. Running
+`capsule up` three levels down mounts the whole project, not the level you are
+standing on.
 
 ```toml
+capsule = ">=0.2"
+
 name    = "myapp"
 image   = "golang:1-alpine"
 shell   = "/bin/sh"
@@ -24,6 +33,7 @@ gomod = "/go/pkg/mod"
 
 | Key | Type | Default | Meaning |
 | :-- | :-- | :-- | :-- |
+| `capsule` | string | none | Oldest capsule that can read this file, `">=MAJOR.MINOR"` |
 | `image` | string | **required** | Base image the capsule runs |
 | `name` | string | directory name | Capsule name, used for the container name, hostname and labels |
 | `shell` | string | `/bin/sh` | Shell to drop into |
@@ -33,6 +43,32 @@ gomod = "/go/pkg/mod"
 | `[env]` | table | none | Environment variables inside the capsule |
 | `[persist]` | table | none | Named volumes that survive teardown |
 
+### `capsule`
+
+The oldest capsule that can read this file, written `">=MAJOR.MINOR"`:
+
+```toml
+capsule = ">=0.2"
+```
+
+Optional, and `capsule init` writes it. It is checked before anything else in
+the file, so a config using a key or a syntax your capsule does not know yet
+tells you to upgrade instead of complaining about an unknown key:
+
+```
+capsule: capsule.toml: needs capsule >=0.4, but this is capsule 0.2.0; upgrade from https://github.com/martin-k-m/capsule/releases
+```
+
+Only `>=` is accepted. A file states the oldest capsule that can read it, which
+is a fact about the file. Pinning an exact version would instead lock a config
+away from capsules perfectly able to read it.
+
+A prerelease satisfies its own series, so `0.3.0-rc1` meets `">=0.3"`.
+
+Files written before this key existed have no requirement and keep working.
+capsule versions before 0.2 do not know the key at all and will reject a file
+that carries it, which is exactly the gap the key exists to close from 0.2 on.
+
 ### `name`
 
 Must start with a letter or digit and contain only letters, digits, `.`, `-` or
@@ -40,10 +76,17 @@ Must start with a letter or digit and contain only letters, digits, `.`, `-` or
 what `capsule shell` and `capsule down` match on, so two projects sharing a name
 will find each other's capsules.
 
+### `image`
+
+Required. Passed to the container runtime as an argument, so it may not start
+with `-`: it is the only free-form value in this file that lands where a leading
+dash would be read as a runtime flag, and a `capsule.toml` from a repository you
+just cloned should not be able to choose one.
+
 ### `workdir`
 
-Must be absolute. Your project directory is bind-mounted here, so it is the one
-path inside the capsule whose contents outlive it.
+Must be absolute. The directory holding `capsule.toml` is bind-mounted here, so
+it is the one path inside the capsule whose contents outlive it.
 
 ### `ports`
 
@@ -104,3 +147,7 @@ write in single quotes.
 Anything outside this subset is a parse error naming the line, rather than a key
 that silently does nothing. Unknown keys and unknown `[sections]` are errors too,
 so a typo in `wokdir` tells you instead of quietly falling back to the default.
+
+The one thing checked ahead of the syntax is the `capsule` requirement, found in
+the raw text if the document does not parse. A file written for a newer capsule
+should say so rather than report a line number its author cannot act on.

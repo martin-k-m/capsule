@@ -22,7 +22,7 @@ COPY . .
 
 ARG VERSION=dev
 RUN CGO_ENABLED=0 go build -trimpath \
-      -ldflags "-s -w -X github.com/martin-k-m/capsule/internal/cli.Version=${VERSION}" \
+      -ldflags "-s -w -X github.com/martin-k-m/capsule/internal/version.Current=${VERSION}" \
       -o /out/capsule ./cmd/capsule
 
 FROM alpine:3.20

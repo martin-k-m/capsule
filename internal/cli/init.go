@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/martin-k-m/capsule/internal/config"
+	"github.com/martin-k-m/capsule/internal/version"
 )
 
 // preset is the starting point `capsule init` writes for a recognised project.
@@ -74,8 +75,27 @@ func runInit(args []string) error {
 	}
 
 	fmt.Printf("Wrote %s for a %s project (%s).\n", config.FileName, p.kind, p.image)
+	if shadowed := shadowedBy(dir); shadowed != "" {
+		fmt.Fprintf(os.Stderr, "capsule: note: this takes over from %s, which is what `capsule up` used here until now\n", shadowed)
+	}
 	fmt.Println("Run `capsule up` to enter it.")
 	return nil
+}
+
+// shadowedBy returns the capsule.toml above dir that the one just written in dir
+// now hides, or "". capsule finds its config by walking upward, so writing one
+// in a subdirectory silently shrinks what `capsule up` mounts. That is worth a
+// sentence rather than a surprise.
+func shadowedBy(dir string) string {
+	parent := filepath.Dir(dir)
+	if parent == dir {
+		return ""
+	}
+	found, err := config.Find(parent)
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(found, config.FileName)
 }
 
 func detect(dir string) preset {
@@ -95,6 +115,9 @@ func render(name string, p preset) string {
 	b.WriteString("# `capsule up` starts a container from this file with the project mounted at\n")
 	b.WriteString("# workdir, drops you into a shell, and destroys the container on exit.\n")
 	b.WriteString("# Nothing survives except the volumes named under [persist].\n\n")
+
+	b.WriteString("# The oldest capsule that can read this file.\n")
+	fmt.Fprintf(&b, "capsule = \">=%s\"\n\n", version.Series())
 
 	fmt.Fprintf(&b, "name    = %q\n", name)
 	fmt.Fprintf(&b, "image   = %q\n", p.image)

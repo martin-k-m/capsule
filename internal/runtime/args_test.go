@@ -19,9 +19,15 @@ func parse(t *testing.T, src string) *config.Capsule {
 
 func joined(args []string) string { return strings.Join(args, " ") }
 
+// opts builds the common RunOptions so a test only spells out what it is about.
+func opts(c *config.Capsule) RunOptions {
+	return RunOptions{Capsule: c, ProjectDir: "/home/m/proj", ID: "id"}
+}
+
 func TestRunArgsIsAlwaysEphemeral(t *testing.T) {
-	c := parse(t, `image = "alpine"`)
-	args := RunArgs(c, "/home/m/proj", "abcd1234", true, nil)
+	o := opts(parse(t, `image = "alpine"`))
+	o.ID, o.Interactive = "abcd1234", true
+	args := RunArgs(o)
 
 	// --rm is the entire promise of this tool. If it ever stops being emitted,
 	// capsules stop disappearing.
@@ -37,8 +43,9 @@ func TestRunArgsIsAlwaysEphemeral(t *testing.T) {
 }
 
 func TestRunArgsNonInteractive(t *testing.T) {
-	c := parse(t, `image = "alpine"`)
-	args := RunArgs(c, "/home/m/proj", "id", false, []string{"go", "test", "./..."})
+	o := opts(parse(t, `image = "alpine"`))
+	o.Cmd = []string{"go", "test", "./..."}
+	args := RunArgs(o)
 	if strings.Contains(joined(args), " -it ") {
 		t.Error("a non-interactive capsule must not ask for a TTY")
 	}
@@ -62,7 +69,7 @@ A = "1"
 [persist]
 gomod = "/go/pkg/mod"
 `)
-	got := joined(RunArgs(c, "/home/m/proj", "id", false, nil))
+	got := joined(RunArgs(opts(c)))
 
 	for _, want := range []string{
 		"-v /home/m/proj:/src",
@@ -90,9 +97,9 @@ M = "3"
 z = "/z"
 a = "/a"
 `)
-	first := joined(RunArgs(c, "/p", "id", false, nil))
+	first := joined(RunArgs(opts(c)))
 	for i := 0; i < 50; i++ {
-		if got := joined(RunArgs(c, "/p", "id", false, nil)); got != first {
+		if got := joined(RunArgs(opts(c))); got != first {
 			t.Fatalf("run args differ between calls:\n%s\n%s", first, got)
 		}
 	}
@@ -116,8 +123,9 @@ func TestShellQuoteEscapesQuotes(t *testing.T) {
 }
 
 func TestPlainShellWhenNothingToBootstrap(t *testing.T) {
-	c := parse(t, `image = "alpine"`)
-	args := RunArgs(c, "/p", "id", true, nil)
+	o := opts(parse(t, `image = "alpine"`))
+	o.Interactive = true
+	args := RunArgs(o)
 	last := args[len(args)-1]
 	if last != config.DefaultShell {
 		t.Errorf("a capsule with no packages and no command should exec a plain shell, got %q", last)
@@ -129,7 +137,7 @@ func TestInstallFallbackMessageKeepsQuotingIntact(t *testing.T) {
 image    = "alpine"
 packages = ["git", "make"]
 `)
-	got := joined(RunArgs(c, "/p", "id", false, nil))
+	got := joined(RunArgs(opts(c)))
 
 	// The package names must reach echo as separate quoted arguments. Pasting
 	// them inside the quoted message would terminate it early.
@@ -143,7 +151,7 @@ func TestDisplayIsCopyPasteable(t *testing.T) {
 image    = "alpine"
 packages = ["git"]
 `)
-	line := Display("docker", RunArgs(c, "/home/m/proj", "id", false, nil))
+	line := Display("docker", RunArgs(opts(c)))
 
 	if strings.Contains(line, "\n") {
 		t.Error("a dry-run command line must stay on one line")

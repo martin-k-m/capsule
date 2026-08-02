@@ -18,8 +18,9 @@ created is left behind.
 What goes away: the container, its filesystem, anything installed into it,
 anonymous volumes, and processes it started.
 
-What survives: your project directory, because it is a bind mount from the host
-and never a copy, plus the named volumes you listed under `[persist]`.
+What survives: your project directory, meaning the directory holding
+`capsule.toml`, because it is a bind mount from the host and never a copy, plus
+the named volumes you listed under `[persist]`.
 
 What this is *not* is isolation from the host. A capsule is a container, with a
 container's boundaries. It shares your kernel, and your project directory is

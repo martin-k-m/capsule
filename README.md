@@ -47,6 +47,8 @@ drives the one you already have.
 ## capsule.toml
 
 ```toml
+capsule = ">=0.2"
+
 name    = "myapp"
 image   = "golang:1-alpine"
 shell   = "/bin/sh"
@@ -65,7 +67,8 @@ gomod = "/go/pkg/mod"
 
 | Key | Meaning |
 | :-- | :-- |
-| `name` | Capsule name; defaults to the directory name |
+| `capsule` | Oldest capsule that can read this file, so a newer config says so instead of failing on an unknown key |
+| `name` | Capsule name; defaults to the name of the directory holding this file |
 | `image` | **Required.** Base image the capsule runs |
 | `shell` | Shell to drop into (default `/bin/sh`) |
 | `workdir` | Where the project is mounted (default `/workspace`) |
@@ -76,6 +79,10 @@ gomod = "/go/pkg/mod"
 
 `packages` is a convenience for a one-off tool, not a build step. If a capsule
 needs the same five packages every time, bake them into an image instead.
+
+capsule looks for `capsule.toml` in the current directory and then in each
+parent, and mounts the directory that holds it. Every command works from
+anywhere inside a project, and always gives you the whole project.
 
 ## Commands
 
@@ -105,9 +112,10 @@ capsule makes one promise, so it is worth being exact about it.
 anonymous volumes, and processes it started. The container is run with `--rm`;
 there is no cleanup step that can be skipped or fail.
 
-**Survives:** your project directory, because it is a bind mount from the host
-and never a copy, and the named volumes under `[persist]`, which exist so that
-a package cache does not have to be re-downloaded every session.
+**Survives:** your project directory, meaning the directory holding
+`capsule.toml`, because it is a bind mount from the host and never a copy, and
+the named volumes under `[persist]`, which exist so that a package cache does not
+have to be re-downloaded every session.
 
 **Not isolation from the host.** A capsule is a container, with a container's
 boundaries: it shares your kernel, and your project directory is writable from

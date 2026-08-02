@@ -6,6 +6,37 @@ All notable changes to capsule are documented here. The format follows
 
 ## [Unreleased]
 
+Breaking changes made deliberately before 1.0, while they are still cheap.
+
+### Changed
+
+- **`capsule.toml` is found by walking upward**, and the directory holding it is
+  what gets bind-mounted at `workdir`. Previously capsule read and mounted the
+  working directory, so running it from a subdirectory either failed or mounted
+  a fragment of the project. If you relied on `cd sub && capsule up` mounting
+  `sub`, put a `capsule.toml` in `sub`; `capsule init` now says on stderr when
+  a file it writes shadows one above it.
+- **`image` may not start with `-`.** It is the only free-form value in a
+  `capsule.toml` that reaches the container runtime in flag position, so a
+  crafted config could previously choose a runtime flag. Configs with such an
+  `image` are now rejected at parse time.
+- `capsule up` prints the directory it mounts, since that is no longer
+  necessarily the directory you ran it from.
+- `capsule doctor` reports the project directory it found and the file's
+  `capsule` requirement.
+- `RunArgs` takes a `RunOptions` struct instead of five positional parameters,
+  and the version lives in `internal/version` rather than `internal/cli`. Both
+  are internal, so this only affects builds that stamp the version themselves:
+  the `-ldflags` path is now
+  `github.com/martin-k-m/capsule/internal/version.Current`.
+
+### Added
+
+- **`capsule = ">=MAJOR.MINOR"`**, an optional key naming the oldest capsule that
+  can read a file. It is checked before the file's sections, keys and even its
+  syntax, so a config written for a newer capsule reports that instead of an
+  unknown key or a line number. `capsule init` writes it.
+
 ## [0.1.0] - 2026-08-02
 
 First release.
