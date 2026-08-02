@@ -3,6 +3,8 @@
 **Lightweight, isolated development environments that disappear when you're done.**
 
 [![CI](https://github.com/martin-k-m/capsule/actions/workflows/ci.yml/badge.svg)](https://github.com/martin-k-m/capsule/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/tag/martin-k-m/capsule?sort=semver&style=flat-square&label=release&color=7C6CFF)](https://github.com/martin-k-m/capsule/releases)
+[![Image](https://img.shields.io/badge/ghcr.io-capsule-2496ED?style=flat-square&logo=docker&logoColor=fff)](https://github.com/martin-k-m/capsule/pkgs/container/capsule)
 [![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=fff)](https://go.dev)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](LICENSE)
 
