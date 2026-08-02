@@ -91,16 +91,18 @@ jobs:
     permissions:
       contents: write
     steps:
+      # merge-multiple flattens every artifact into one directory in a single
+      # extraction. Downloading them as five separate nested directories proved
+      # flaky on the runner ("artifact download failed after 5 retries"), and
+      # the nesting only existed so the next step could flatten it anyway.
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
-          path: dist
+          path: out
+          merge-multiple: true
 
-      - name: Collect binaries
-        run: |
-          mkdir -p out
-          find dist -type f -exec cp {} out/ \;
-          ls -l out
+      - name: List binaries
+        run: ls -l out
 
       - uses: softprops/action-gh-release@v2
         with:
