@@ -57,7 +57,7 @@ func Load(dir string) (*Capsule, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("no %s here — run `capsule init` to create one", FileName)
+			return nil, fmt.Errorf("no %s here, run `capsule init` to create one", FileName)
 		}
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func Parse(src, defaultName string) (*Capsule, error) {
 
 func (c *Capsule) validate() error {
 	if strings.TrimSpace(c.Image) == "" {
-		return fmt.Errorf("`image` is required — set it to the base image the capsule runs")
+		return fmt.Errorf("`image` is required: set it to the base image the capsule runs")
 	}
 	if !nameRE.MatchString(c.Name) {
 		return fmt.Errorf("invalid name %q: use letters, digits, dot, dash or underscore", c.Name)

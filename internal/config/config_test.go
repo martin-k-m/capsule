@@ -109,7 +109,7 @@ func TestParseErrors(t *testing.T) {
 
 func TestParseIsDeterministic(t *testing.T) {
 	// Key order comes from maps, so the same input must still produce the same
-	// ordered output every time — capsule's runtime flags depend on it.
+	// ordered output every time, capsule's runtime flags depend on it.
 	c, err := Parse(full, "fallback")
 	if err != nil {
 		t.Fatalf("Parse: %v", err)

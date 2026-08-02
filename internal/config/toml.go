@@ -260,7 +260,7 @@ func unescape(s string) string {
 }
 
 // sortedKeys returns a map's keys in a stable order. Every place capsule turns
-// a map into output — runtime flags, error messages — goes through this, so the
+// a map into output (runtime flags, error messages) goes through this, so the
 // same capsule.toml always produces byte-identical results.
 func sortedKeys[V any](m map[string]V) []string {
 	keys := make([]string, 0, len(m))

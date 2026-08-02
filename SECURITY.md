@@ -2,7 +2,7 @@
 
 ## What capsule is and is not
 
-A capsule is a container. It gives you a **clean, disposable environment** — not
+A capsule is a container. It gives you a **clean, disposable environment**, not
 a sandbox for untrusted code. Specifically:
 
 - A capsule shares the host kernel. Container escapes are a real class of bug.

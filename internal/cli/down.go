@@ -19,7 +19,7 @@ func runDown(args []string) error {
 	}
 
 	// Capsules normally destroy themselves on exit; `down` exists for the cases
-	// where that did not happen — a closed laptop lid, a killed terminal.
+	// where that did not happen: a closed laptop lid, a killed terminal.
 	name := ""
 	if !*all {
 		_, c, err := projectContext()

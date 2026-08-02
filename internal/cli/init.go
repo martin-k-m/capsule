@@ -53,7 +53,7 @@ func runInit(args []string) error {
 	}
 	path := filepath.Join(dir, config.FileName)
 	if _, err := os.Stat(path); err == nil && !*force {
-		return fmt.Errorf("%s already exists — pass --force to overwrite it", config.FileName)
+		return fmt.Errorf("%s already exists, pass --force to overwrite it", config.FileName)
 	}
 
 	p := detect(dir)
@@ -90,7 +90,7 @@ func detect(dir string) preset {
 func render(name string, p preset) string {
 	var b strings.Builder
 
-	b.WriteString("# capsule.toml — a development environment that disappears when you're done.\n")
+	b.WriteString("# capsule.toml: a development environment that disappears when you're done.\n")
 	b.WriteString("#\n")
 	b.WriteString("# `capsule up` starts a container from this file with the project mounted at\n")
 	b.WriteString("# workdir, drops you into a shell, and destroys the container on exit.\n")
@@ -112,7 +112,7 @@ func render(name string, p preset) string {
 	b.WriteString("[env]\n")
 	b.WriteString("# EXAMPLE = \"1\"\n\n")
 
-	b.WriteString("# Named volumes that survive teardown — the only state a capsule keeps.\n")
+	b.WriteString("# Named volumes that survive teardown, the only state a capsule keeps.\n")
 	b.WriteString("[persist]\n")
 	if p.volume != "" {
 		fmt.Fprintf(&b, "%s = %q  # %s\n", p.volume, p.mount, p.note)

@@ -1,4 +1,4 @@
-# CLAUDE.md — capsule
+# CLAUDE.md: capsule
 
 Context for AI agents working in this repository.
 
@@ -26,11 +26,11 @@ nothing it created is left behind.**
   skipped or fail. `TestRunArgsIsAlwaysEphemeral` exists to keep it that way.
 - The *only* exception is `[persist]`, which must stay explicit and opt-in. Do
   not add inference that persists something the user did not name.
-- Presets in `capsule init` persist **caches only** — never source or build
+- Presets in `capsule init` persist **caches only**, never source or build
   output. Re-downloading a dependency set is waste; a build artifact is
   reproducible and should not survive.
 - capsule keeps **no state file**. Containers are found by the
-  `me.blinkdev.capsule` label. Do not introduce one — there would be nothing to
+  `me.blinkdev.capsule` label. Do not introduce one. There would be nothing to
   gain and a whole class of drift to lose.
 
 ## Build & test
@@ -45,7 +45,7 @@ go build ./cmd/capsule
 ```
 
 Keeping `go.mod` dependency-free is deliberate. Before adding a module, check
-whether the standard library covers it — the TOML subset reader and the terminal
+whether the standard library covers it. The TOML subset reader and the terminal
 detection are both there because a dependency was not worth it.
 
 ## Layout
@@ -57,7 +57,7 @@ internal/runtime/  container CLI detection, argv construction, ps filters
 internal/cli/      command dispatch: init, up, shell, list, down, doctor
 ```
 
-`internal/config` and `internal/runtime` are pure and directly tested —
+`internal/config` and `internal/runtime` are pure and directly tested.
 `RunArgs` is where the tool's entire security surface lives, so it stays a pure
 function that can be asserted on without Docker present.
 

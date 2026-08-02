@@ -25,7 +25,7 @@ gomod = "/go/pkg/mod"
 | Key | Type | Default | Meaning |
 | :-- | :-- | :-- | :-- |
 | `image` | string | **required** | Base image the capsule runs |
-| `name` | string | directory name | Capsule name; used for the container name, hostname and labels |
+| `name` | string | directory name | Capsule name, used for the container name, hostname and labels |
 | `shell` | string | `/bin/sh` | Shell to drop into |
 | `workdir` | string | `/workspace` | Where the project is mounted inside the container |
 | `ports` | array | none | Published as `"host:container"` |
@@ -36,7 +36,7 @@ gomod = "/go/pkg/mod"
 ### `name`
 
 Must start with a letter or digit and contain only letters, digits, `.`, `-` or
-`_` — the same constraint the container runtime puts on a name component. It is
+`_`, the same constraint the container runtime puts on a name component. It is
 what `capsule shell` and `capsule down` match on, so two projects sharing a name
 will find each other's capsules.
 
@@ -47,16 +47,15 @@ path inside the capsule whose contents outlive it.
 
 ### `ports`
 
-Each entry is `"host:container"`, both numeric and in 1–65535. `"8080"` alone is
-rejected rather than guessed at, because guessing which side you meant would be
-a coin flip.
+Each entry is `"host:container"`, both numeric and in 1-65535. A bare `"8080"` is
+rejected rather than guessed at, because guessing which side you meant would be a
+coin flip.
 
 ### `packages`
 
-Installed at start using whichever package manager the image actually has —
-`apk`, then `apt-get`, then `dnf`. If the image has none, capsule says so on
-stderr and carries on rather than failing the capsule or pretending the packages
-are there.
+Installed at start using whichever package manager the image actually has: `apk`,
+then `apt-get`, then `dnf`. If the image has none, capsule says so on stderr and
+carries on rather than failing the capsule or pretending the packages are there.
 
 This is a convenience for a one-off tool, not a build step. It runs on **every**
 `capsule up`, so if a capsule needs the same five packages every time, bake them
@@ -65,7 +64,7 @@ into an image instead and save yourself the wait.
 ### `[env]`
 
 Keys become `-e KEY=VALUE`. Keys may not contain `=`, spaces or tabs. Values are
-passed through verbatim; quote anything containing a `#`, or it reads as the
+passed through verbatim, so quote anything containing a `#` or it reads as the
 start of a comment.
 
 ### `[persist]`
@@ -78,10 +77,10 @@ gomod = "/go/pkg/mod"
 ```
 
 These are the only things that survive teardown, and they must be named
-explicitly — capsule never infers that something is worth keeping.
+explicitly. capsule never infers that something is worth keeping.
 
 The presets `capsule init` writes always persist a *cache*, never source or build
-output. That is the line worth holding: re-downloading a dependency set is pure
+output. That is the line worth holding. Re-downloading a dependency set is pure
 waste, so it is worth keeping, while anything a build produced is reproducible
 and should go away with the capsule.
 
@@ -89,8 +88,8 @@ Volume names follow the same rules as `name`. The volume is created on first use
 
 ## Supported syntax
 
-capsule reads a deliberately small subset of TOML — enough for the schema above,
-small enough to audit in one sitting, and small enough to need no dependency:
+capsule reads a deliberately small subset of TOML: enough for the schema above,
+small enough to audit in one sitting, and small enough to need no dependency.
 
 - `#` comments, on their own line or trailing a value
 - `[table]` headers, one level deep
@@ -99,7 +98,7 @@ small enough to audit in one sitting, and small enough to need no dependency:
 - bare tokens such as `true` or `8080`, kept as their literal text
 
 Escapes `\n`, `\t`, `\\` and `\"` are interpreted inside `"basic strings"` and
-left alone inside `'literal strings'` — so a Windows-style path is easiest to
+left alone inside `'literal strings'`, so a Windows-style path is easiest to
 write in single quotes.
 
 Anything outside this subset is a parse error naming the line, rather than a key

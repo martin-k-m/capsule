@@ -16,8 +16,8 @@ func main() {
 		return
 	}
 
-	// A command that ran inside the capsule and failed is not a capsule error —
-	// pass its status straight through so `capsule up -- go test` is usable in a
+	// A command that ran inside the capsule and failed is not a capsule error.
+	// Pass its status straight through so `capsule up -- go test` is usable in a
 	// shell pipeline or a CI step.
 	var exit *cli.ExitError
 	if errors.As(err, &exit) {

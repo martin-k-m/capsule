@@ -4,8 +4,8 @@
 capsule <command> [flags]
 ```
 
-`capsule --help` lists the commands; `capsule <command> -h` gives one command's
-flags. `capsule version` prints the version.
+`capsule --help` lists the commands, `capsule <command> -h` gives one command's
+flags, and `capsule version` prints the version.
 
 | Command | What it does |
 | :-- | :-- |
@@ -30,10 +30,10 @@ Writes `capsule.toml`, detecting the project type.
 | `--force` | Overwrite an existing `capsule.toml` |
 | `--image IMAGE` | Use this base image instead of the detected one |
 
-Detection checks for a marker file, first match winning: `go.work` and `go.mod` →
-Go, `Cargo.toml` → Rust, `pyproject.toml` and `requirements.txt` → Python,
-`package.json` → Node. Anything else gets `debian:bookworm-slim`. Each preset
-persists that ecosystem's package cache and nothing else.
+Detection checks for a marker file, first match winning. `go.work` and `go.mod`
+give Go, `Cargo.toml` gives Rust, `pyproject.toml` and `requirements.txt` give
+Python, `package.json` gives Node. Anything else gets `debian:bookworm-slim`.
+Each preset persists that ecosystem's package cache and nothing else.
 
 The generated file is parsed before it is written, so `init` cannot produce
 something `up` would then reject.
@@ -66,7 +66,7 @@ project.
 
 ## `capsule shell`
 
-Opens another shell in a capsule that is already running — a second window into
+Opens another shell in a capsule that is already running. A second window into
 the same environment, rather than a second environment.
 
 If several capsules with this project's name are running, it attaches to the
@@ -75,8 +75,8 @@ up` rather than silently starting one.
 
 ## `capsule list`
 
-Lists running capsules — name, image, and status — across every project on the
-machine, not just this one.
+Lists running capsules by name, image, and status, across every project on the
+machine rather than just this one.
 
 Containers are found by the `me.blinkdev.capsule` label rather than from a state
 file, so a capsule left behind by a killed terminal still shows up here.
@@ -89,11 +89,11 @@ Destroys running capsules.
 | :-- | :-- |
 | `--all` | Destroy every capsule on the machine, not just this project's |
 
-Capsules normally destroy themselves on exit; this exists for when that did not
-happen. Without `--all` it needs a `capsule.toml` to know which name to match;
-with `--all` it does not, so it works from anywhere.
+Capsules normally destroy themselves on exit. This exists for when that did not
+happen. Without `--all` it needs a `capsule.toml` to know which name to match.
+With `--all` it does not, so it works from anywhere.
 
-Persisted volumes are **not** removed — they are the state you asked to keep.
+Persisted volumes are **not** removed. They are the state you asked to keep.
 Remove them with your runtime directly (`docker volume rm <name>`).
 
 ## `capsule doctor`
@@ -108,7 +108,7 @@ Each line is one of:
 | Mark | Meaning |
 | :-- | :-- |
 | `ok` | Fine |
-| `note` | Worth knowing, not a problem — an image not pulled yet, a volume not created yet |
+| `note` | Worth knowing but not a problem, such as an image not pulled yet |
 | `FAIL` | A real problem |
 
 Exits non-zero if there was at least one `FAIL`, so it works as a CI

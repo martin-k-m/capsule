@@ -5,7 +5,7 @@
 #
 # capsule drives a container runtime, so running capsule *itself* in a container
 # needs the host's Docker socket. That grants the container root-equivalent
-# control of the host — only do it on a machine you trust, and prefer the native
+# control of the host. Only do it on a machine you trust, and prefer the native
 # binary from the releases page for everyday use:
 #
 #   docker run --rm -it \
@@ -15,7 +15,7 @@
 FROM golang:1.24-alpine AS build
 WORKDIR /src
 
-# Nothing to download — capsule has no third-party dependencies — but copying
+# Nothing to download, since capsule has no third-party dependencies, but copying
 # go.mod first still keeps this layer stable across source edits.
 COPY go.mod ./
 COPY . .

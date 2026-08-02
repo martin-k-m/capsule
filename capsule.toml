@@ -1,4 +1,4 @@
-# capsule.toml — capsule's own development environment.
+# capsule.toml: capsule's own development environment.
 #
 # `capsule up` starts a container from this file with the project mounted at
 # workdir, drops you into a shell, and destroys the container on exit.
@@ -14,6 +14,6 @@ packages = ["git", "make"]
 [env]
 CGO_ENABLED = "0"
 
-# Named volumes that survive teardown — the only state a capsule keeps.
+# Named volumes that survive teardown, the only state a capsule keeps.
 [persist]
 gomod = "/go/pkg/mod"  # Go module cache

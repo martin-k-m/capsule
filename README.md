@@ -8,7 +8,7 @@
 
 You need Postgres 14 and an old Node to reproduce a bug. You try a build with a
 different toolchain. You run someone else's repo. Every one of those leaves
-something behind — a global package, a version manager entry, a daemon on 5432,
+something behind: a global package, a version manager entry, a daemon on 5432,
 a `node_modules` you did not want.
 
 A capsule is a container described by one file in your project. `capsule up`
@@ -26,7 +26,7 @@ capsule up        # you are now inside; type exit and it never existed
 Prebuilt binaries for Linux, macOS and Windows are on the
 [releases page](https://github.com/martin-k-m/capsule/releases).
 
-Or run the published image — see the [security note](#running-capsule-in-a-container)
+Or run the published image. See the [security note](#running-capsule-in-a-container)
 before you do:
 
 ```sh
@@ -39,7 +39,7 @@ Or build it yourself (no third-party dependencies, so this is just Go):
 go install github.com/martin-k-m/capsule/cmd/capsule@latest
 ```
 
-capsule needs `docker` or `podman` on your PATH. It does not replace them — it
+capsule needs `docker` or `podman` on your PATH. It does not replace them. It
 drives the one you already have.
 
 ## capsule.toml
@@ -72,7 +72,7 @@ gomod = "/go/pkg/mod"
 | `[env]` | Environment variables inside the capsule |
 | `[persist]` | Named volumes that survive teardown |
 
-`packages` is a convenience for a one-off tool, not a build step — if a capsule
+`packages` is a convenience for a one-off tool, not a build step. If a capsule
 needs the same five packages every time, bake them into an image instead.
 
 ## Commands
@@ -104,12 +104,12 @@ anonymous volumes, and processes it started. The container is run with `--rm`;
 there is no cleanup step that can be skipped or fail.
 
 **Survives:** your project directory, because it is a bind mount from the host
-and never a copy — and the named volumes under `[persist]`, which exist so that
+and never a copy, and the named volumes under `[persist]`, which exist so that
 a package cache does not have to be re-downloaded every session.
 
 **Not isolation from the host.** A capsule is a container, with a container's
 boundaries: it shares your kernel, and your project directory is writable from
-inside. It is a clean, disposable environment — not a sandbox for untrusted code.
+inside. It is a clean, disposable environment, not a sandbox for untrusted code.
 
 capsule keeps no state file. It finds its own containers by label, so nothing
 can drift out of sync, and `capsule down --all` can always sweep a machine clean.
@@ -127,7 +127,7 @@ docker run --rm -it \
 ```
 
 Mounting that socket gives the container root-equivalent control of the host.
-That is a real trade, not a formality — for everyday use, prefer the native
+That is a real trade, not a formality. For everyday use, prefer the native
 binary.
 
 ## Documentation
@@ -147,8 +147,8 @@ go vet ./...
 go build ./cmd/capsule
 ```
 
-The parts that decide what a `capsule.toml` becomes — the config reader and the
-runtime argv builder — are pure functions with direct tests, so the flags a
+The parts that decide what a `capsule.toml` becomes, the config reader and the
+runtime argv builder, are pure functions with direct tests, so the flags a
 capsule turns into can be verified without Docker anywhere in sight.
 
 ## License

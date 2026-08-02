@@ -9,7 +9,7 @@ import (
 )
 
 // report accumulates check results. A "note" is something the user should know
-// but which is not wrong — capsule never dresses a fine situation up as a
+// but which is not wrong. capsule never dresses a fine situation up as a
 // failure, and never hides a real one behind a reassuring summary.
 type report struct{ problems int }
 
@@ -42,7 +42,7 @@ func runDoctor(args []string) error {
 	if rt.Has("info") {
 		r.ok("runtime daemon", "reachable")
 	} else {
-		r.fail("runtime daemon", "not reachable — is the "+rt.Name()+" daemon running?")
+		r.fail("runtime daemon", "not reachable. Is the "+rt.Name()+" daemon running?")
 	}
 
 	_, c, err := projectContext()
@@ -55,12 +55,12 @@ func runDoctor(args []string) error {
 	if rt.Has("image", "inspect", c.Image) {
 		r.ok("image", c.Image+" present locally")
 	} else {
-		r.note("image", c.Image+" not pulled yet — `capsule up` will fetch it")
+		r.note("image", c.Image+" not pulled yet, `capsule up` will fetch it")
 	}
 
 	keys := c.PersistKeys()
 	if len(keys) == 0 {
-		r.ok("persisted state", "none — this capsule keeps nothing")
+		r.ok("persisted state", "none, this capsule keeps nothing")
 	}
 	for _, v := range keys {
 		if rt.Has("volume", "inspect", v) {

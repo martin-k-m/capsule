@@ -8,7 +8,7 @@ import (
 )
 
 // Labels capsule stamps on every container it starts. They are the only way it
-// finds its own containers again — capsule never keeps a state file, so there is
+// finds its own containers again. capsule never keeps a state file, so there is
 // nothing to go stale, and `capsule down --all` can always sweep a machine clean.
 const (
 	Label     = "me.blinkdev.capsule"
@@ -64,7 +64,7 @@ func HostPath(dir string) string {
 
 // entrypoint decides what actually runs as PID 1 in the capsule.
 func entrypoint(c *config.Capsule, cmd []string) []string {
-	// The common case — an interactive capsule with nothing to install — gets a
+	// The common case, an interactive capsule with nothing to install, gets a
 	// plain shell rather than a shell wrapped around a script, so job control and
 	// the prompt behave exactly as they would outside the capsule.
 	if len(c.Packages) == 0 && len(cmd) == 0 {
@@ -102,8 +102,8 @@ func installSnippet(pkgs string) string {
 		"; elif command -v apt-get >/dev/null 2>&1; then apt-get update -qq && apt-get install -y -qq --no-install-recommends " + pkgs +
 		"; elif command -v dnf >/dev/null 2>&1; then dnf install -y -q " + pkgs +
 		// The package names are already shell-quoted words, so they are passed to
-		// echo as further arguments rather than pasted inside its string —
-		// nesting them in the quoted message would break the quoting.
+		// echo as further arguments rather than pasted inside its string.
+		// Nesting them in the quoted message would break the quoting.
 		"; else echo 'capsule: no apk/apt-get/dnf in this image; skipping packages:' " + pkgs + " >&2; fi"
 }
 
@@ -115,7 +115,7 @@ func shellQuote(s string) string {
 
 // Display renders a runtime invocation as a single copy-pasteable command line.
 // `capsule up --dry-run` claims to print the command it would run, so the output
-// has to survive being pasted into a shell — the bootstrap script argument spans
+// has to survive being pasted into a shell, and the bootstrap script argument spans
 // several lines and would otherwise fall apart.
 func Display(bin string, args []string) string {
 	parts := make([]string, 0, len(args)+1)

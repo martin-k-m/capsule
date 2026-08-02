@@ -27,7 +27,7 @@ func Detect() (*Runtime, error) {
 			return &Runtime{Bin: path}, nil
 		}
 	}
-	return nil, errors.New("no container runtime on PATH — install Docker or Podman")
+	return nil, errors.New("no container runtime on PATH, install Docker or Podman")
 }
 
 // Name is the short name of the runtime binary, for messages.

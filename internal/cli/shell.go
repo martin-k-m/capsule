@@ -27,7 +27,7 @@ func runShell(args []string) error {
 		return err
 	}
 	if len(names) == 0 {
-		return fmt.Errorf("no running capsule named %q — start one with `capsule up`", c.Name)
+		return fmt.Errorf("no running capsule named %q, start one with `capsule up`", c.Name)
 	}
 
 	target := names[0]

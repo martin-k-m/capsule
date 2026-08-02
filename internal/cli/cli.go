@@ -72,7 +72,7 @@ func Run(args []string) error {
 }
 
 func usage(w io.Writer) {
-	fmt.Fprint(w, "capsule — lightweight, isolated development environments that disappear when you're done\n\n"+
+	fmt.Fprint(w, "capsule: lightweight, isolated development environments that disappear when you're done\n\n"+
 		"Usage:\n  capsule <command> [flags]\n\nCommands:\n")
 
 	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)

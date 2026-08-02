@@ -6,7 +6,7 @@
 # committed, what is generated, and what is on disk in agreement.
 * text=auto eol=lf
 
-# The shell scripts capsule builds are always LF — a CRLF here would reach the
+# The shell scripts capsule builds are always LF. A CRLF here would reach the
 # container as a stray \r in a command.
 *.sh text eol=lf
 
