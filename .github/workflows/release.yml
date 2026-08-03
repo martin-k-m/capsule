@@ -15,7 +15,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -59,9 +59,9 @@ jobs:
           - { goos: darwin, goarch: arm64 }
           - { goos: windows, goarch: amd64, ext: .exe }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: stable
 
@@ -77,7 +77,7 @@ jobs:
             -o "$out" ./cmd/capsule
           echo "ASSET=$out" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: capsule-${{ matrix.goos }}-${{ matrix.goarch }}
           path: ${{ env.ASSET }}
@@ -96,7 +96,7 @@ jobs:
       # flaky on the runner ("artifact download failed after 5 retries"), and
       # the nesting only existed so the next step could flatten it anyway.
       - name: Download build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: out
           merge-multiple: true
