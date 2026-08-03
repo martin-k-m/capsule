@@ -65,6 +65,21 @@ func runDoctor(args []string) error {
 		r.note("image", c.Image+" not pulled yet, `capsule up` will fetch it")
 	}
 
+	for _, s := range c.Services {
+		label := "service " + s.Name
+		if s.Ready == "" {
+			// A container that is up is not the same thing as a service that is
+			// answering, so a service with no check gets said out loud here
+			// rather than only in the middle of a `capsule up`.
+			r.note(label, fmt.Sprintf("%s, reachable at %q, no `ready` check", s.Image, s.Name))
+		} else {
+			r.ok(label, fmt.Sprintf("%s, reachable at %q, ready when `%s` succeeds", s.Image, s.Name, s.Ready))
+		}
+		if !rt.Has("image", "inspect", s.Image) {
+			r.note(label+" image", s.Image+" not pulled yet, `capsule up` will fetch it")
+		}
+	}
+
 	keys := c.PersistKeys()
 	if len(keys) == 0 {
 		r.ok("persisted state", "none, this capsule keeps nothing")
@@ -77,7 +92,7 @@ func runDoctor(args []string) error {
 		}
 	}
 
-	if running, err := rt.Lines(runtime.PsArgs(c.Name, "{{.Names}}")...); err == nil && len(running) > 0 {
+	if running, err := rt.Lines(runtime.PsArgs(runtime.PsFilter{Name: c.Name}, "{{.Names}}")...); err == nil && len(running) > 0 {
 		r.note("running now", strings.Join(running, ", "))
 	}
 

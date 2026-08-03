@@ -129,6 +129,57 @@ and should go away with the capsule.
 
 Volume names follow the same rules as `name`. The volume is created on first use.
 
+### `[services.<name>]`
+
+Sidecars started alongside the capsule and thrown away with it. One subtable per
+service; the subtable name is the hostname the capsule reaches it at.
+
+```toml
+capsule = ">=0.2"
+
+name  = "api"
+image = "ruby:3.3"
+
+[services.db]
+image   = "postgres:16"
+ready   = "pg_isready -U postgres"
+timeout = "30s"
+env     = { POSTGRES_PASSWORD = "dev" }
+
+[services.cache]
+image = "redis:7"
+ready = "redis-cli ping"
+```
+
+`capsule up` starts every service on a private network named after the capsule
+and its id, waits for each to be ready, then starts the capsule joined to the
+same network. Inside it, `db` and `cache` resolve as hostnames.
+
+| Key | Meaning |
+|---|---|
+| `image` | required, same as the capsule's own |
+| `ready` | shell command run inside the service until it exits 0 |
+| `timeout` | how long to wait for `ready`, default 30s |
+| `ports` | published to the host as `"host:container"` |
+| `env` | passed in as environment variables |
+
+**`ready` is the key worth setting.** A container that is running is not the
+same thing as a database accepting connections, and without `ready` the capsule
+starts the moment the container does, which for Postgres is several seconds too
+early. Omit it and capsule only waits for the container to be up.
+
+Two capsules can run at once: the network name includes the capsule id, so their
+services do not collide or reach each other.
+
+Everything is torn down when the capsule exits, including on a signal and on a
+service that never becomes ready. A failed start removes what it already
+created rather than leaving half a stack running.
+
+Declaring `[services]` needs `capsule = ">=0.2"` in the file. Without it an
+older binary reports an unknown key instead of saying the file is newer than it
+is.
+
+
 ## Supported syntax
 
 capsule reads a deliberately small subset of TOML: enough for the schema above,

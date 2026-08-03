@@ -8,6 +8,28 @@ All notable changes to capsule are documented here. The format follows
 
 Breaking changes made deliberately before 1.0, while they are still cheap.
 
+### Added
+
+- **`[services.<name>]`: sidecar containers.** A capsule can declare the
+  containers it needs, and `capsule up` starts them on a private network named
+  after the capsule and its id, waits for each to be ready, then joins the
+  capsule to the same network so a service is reachable by its subtable name.
+  This is the scenario the README has always opened with and could not do.
+
+  `ready` is a shell command run inside the service until it exits 0. Without
+  it the capsule starts as soon as the container does, which for a database is
+  several seconds before it accepts connections. `timeout` bounds the wait and
+  defaults to 30s.
+
+  Teardown covers every exit: normal, a signal, a service that never becomes
+  ready, and a failure partway through starting the stack, which removes what
+  it already created rather than leaving half a stack behind. Two capsules can
+  run at once without their services colliding, since the network name includes
+  the capsule id.
+
+  Requires `capsule = ">=0.2"` in the file, so an older binary says the file is
+  newer than it is rather than reporting an unknown key.
+
 ### Changed
 
 - **`capsule.toml` is found by walking upward**, and the directory holding it is

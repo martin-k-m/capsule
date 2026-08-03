@@ -164,15 +164,23 @@ packages = ["git"]
 }
 
 func TestPsArgsFiltersByLabel(t *testing.T) {
-	all := joined(PsArgs("", "{{.Names}}"))
+	all := joined(PsArgs(PsFilter{}, "{{.Names}}"))
 	if !strings.Contains(all, "label="+Label+"=1") {
 		t.Errorf("PsArgs must filter to capsule's own containers: %s", all)
 	}
 	if strings.Contains(all, LabelName) {
 		t.Error("PsArgs with no name should not filter by name")
 	}
-	one := joined(PsArgs("demo", "{{.Names}}"))
+	if strings.Contains(all, LabelRole) {
+		t.Error("PsArgs with no role should not filter by role")
+	}
+	one := joined(PsArgs(PsFilter{Name: "demo"}, "{{.Names}}"))
 	if !strings.Contains(one, "label="+LabelName+"=demo") {
 		t.Errorf("PsArgs should narrow to the named capsule: %s", one)
+	}
+	// `capsule shell` has to reach the capsule, never the database beside it.
+	capsules := joined(PsArgs(PsFilter{Name: "demo", Role: RoleCapsule}, "{{.Names}}"))
+	if !strings.Contains(capsules, "label="+LabelRole+"="+RoleCapsule) {
+		t.Errorf("PsArgs should narrow to a role: %s", capsules)
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 const full = `
@@ -113,6 +114,134 @@ func TestParseErrors(t *testing.T) {
 	}
 }
 
+const withServices = `
+image = "node:18"
+
+[services.db]
+image   = "postgres:14"
+ready   = "pg_isready -U app"
+timeout = "90s"
+ports   = ["5432:5432"]
+
+[services.db.env]
+POSTGRES_PASSWORD = "dev"
+POSTGRES_USER     = "app"
+
+[services.cache]
+image = "redis:7"
+`
+
+func TestParseServices(t *testing.T) {
+	c, err := Parse(withServices, "fallback")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(c.Services) != 2 {
+		t.Fatalf("services = %v, want two", c.Services)
+	}
+	// Sorted, not written order: everything capsule prints or passes to a
+	// runtime has to come out the same way every time.
+	if c.Services[0].Name != "cache" || c.Services[1].Name != "db" {
+		t.Errorf("services are not in sorted order: %q, %q", c.Services[0].Name, c.Services[1].Name)
+	}
+
+	db := c.Services[1]
+	if db.Image != "postgres:14" {
+		t.Errorf("db image = %q", db.Image)
+	}
+	if db.Ready != "pg_isready -U app" {
+		t.Errorf("db ready = %q", db.Ready)
+	}
+	if db.Timeout != 90*time.Second {
+		t.Errorf("db timeout = %s", db.Timeout)
+	}
+	if len(db.Ports) != 1 || db.Ports[0] != "5432:5432" {
+		t.Errorf("db ports = %v", db.Ports)
+	}
+	if db.Env["POSTGRES_PASSWORD"] != "dev" || db.Env["POSTGRES_USER"] != "app" {
+		t.Errorf("db env = %v", db.Env)
+	}
+	if strings.Join(db.EnvKeys(), ",") != "POSTGRES_PASSWORD,POSTGRES_USER" {
+		t.Errorf("db env keys are not sorted: %v", db.EnvKeys())
+	}
+
+	cache := c.Services[0]
+	if cache.Timeout != DefaultReadyTimeout {
+		t.Errorf("a service that names no timeout should get the default, got %s", cache.Timeout)
+	}
+	if cache.Ready != "" {
+		t.Errorf("cache ready = %q, want none declared", cache.Ready)
+	}
+}
+
+func TestNoServicesIsFine(t *testing.T) {
+	c, err := Parse(`image = "alpine"`, "x")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(c.Services) != 0 {
+		t.Errorf("services = %v, want none", c.Services)
+	}
+}
+
+func TestServiceErrors(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{"no image", "image = \"a\"\n[services.db]\nready = \"true\"", "services.db: `image` is required"},
+		{"unknown key", "image = \"a\"\n[services.db]\nimage = \"p\"\nreadyy = \"true\"", `unknown key "readyy" in [services.db]`},
+		{"unknown subtable", "image = \"a\"\n[services.db.envv]\nA = \"1\"", "unknown section [services.db.envv]"},
+		{"too deep", "image = \"a\"\n[services.db.env.more]\nA = \"1\"", "unknown section [services.db.env.more]"},
+		{"key directly under services", "image = \"a\"\n[services]\ndb = \"postgres:14\"", "a service is declared as [services.NAME]"},
+		{"bad duration", "image = \"a\"\n[services.db]\nimage = \"p\"\ntimeout = \"soon\"", "must be a duration"},
+		{"array where string expected", "image = \"a\"\n[services.db]\nimage = [\"p\"]", "services.db.image must be a string"},
+		{"string where array expected", "image = \"a\"\n[services.db]\nimage = \"p\"\nports = \"5432:5432\"", "services.db.ports must be an array"},
+		{"bad port", "image = \"a\"\n[services.db]\nimage = \"p\"\nports = [\"5432\"]", `services.db: port "5432" must be written "host:container"`},
+		{"image in flag position", "image = \"a\"\n[services.db]\nimage = \"-v/etc:/etc\"", `services.db: image "-v/etc:/etc" must not start with "-"`},
+		{"name is not a hostname", "image = \"a\"\n[services.my_db]\nimage = \"p\"", `invalid service name "my_db"`},
+		{"env as array", "image = \"a\"\n[services.db]\nimage = \"p\"\n[services.db.env]\nA = [\"1\"]", "services.db.env.A must be a string"},
+		{"env named [services.db.env] only", "image = \"a\"\n[services.db.env]\nA = \"1\"", "services.db: `image` is required"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Parse(tc.src, "fallback")
+			if err == nil {
+				t.Fatalf("expected an error mentioning %q, got none", tc.want)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("error = %q, want it to mention %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestServicesAreDeterministic(t *testing.T) {
+	first, err := Parse(withServices, "x")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	want := ""
+	for _, s := range first.Services {
+		want += s.Name + ":" + strings.Join(s.EnvKeys(), ",") + ";"
+	}
+	for i := 0; i < 50; i++ {
+		again, err := Parse(withServices, "x")
+		if err != nil {
+			t.Fatalf("Parse: %v", err)
+		}
+		got := ""
+		for _, s := range again.Services {
+			got += s.Name + ":" + strings.Join(s.EnvKeys(), ",") + ";"
+		}
+		if got != want {
+			t.Fatalf("service order changed between parses: %q vs %q", want, got)
+		}
+	}
+}
+
 func TestParseIsDeterministic(t *testing.T) {
 	// Key order comes from maps, so the same input must still produce the same
 	// ordered output every time, capsule's runtime flags depend on it.
@@ -170,6 +299,9 @@ func TestRequirementIsReportedBeforeAnythingElse(t *testing.T) {
 	}{
 		{"unknown key", "capsule = \"" + unreachable + "\"\nimage = \"a\"\nsandbox = \"strict\"", "unknown key"},
 		{"unknown section", "capsule = \"" + unreachable + "\"\nimage = \"a\"\n[mounts]\nx = \"/x\"", "unknown section"},
+		// The reason [services] declares a requirement: a capsule too old to
+		// know the section has to say so, not call it a mistake.
+		{"a section this build does know", "capsule = \"" + unreachable + "\"\nimage = \"a\"\n[services.db]\nimage = \"postgres:14\"", "unknown section"},
 		{"missing image", "capsule = \"" + unreachable + "\"", "`image` is required"},
 		// A newer capsule may add syntax this reader cannot read at all, so the
 		// requirement is looked for in the raw text before a parse error is

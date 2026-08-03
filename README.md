@@ -84,6 +84,38 @@ capsule looks for `capsule.toml` in the current directory and then in each
 parent, and mounts the directory that holds it. Every command works from
 anywhere inside a project, and always gives you the whole project.
 
+## Services
+
+The thing the first paragraph promises. A capsule can declare the containers it
+needs alongside it:
+
+```toml
+capsule = ">=0.2"
+
+name  = "api"
+image = "ruby:3.3"
+
+[services.db]
+image = "postgres:16"
+ready = "pg_isready -U postgres"
+```
+
+```console
+$ capsule up
+  starting db
+  db ready in 2.1s
+  api
+```
+
+They share a private network named after the capsule, so `db` is just a
+hostname. `ready` is a command run inside the service until it exits 0, because
+a container that is running is not a database that is accepting connections.
+Everything goes away together, including when a service never comes up or you
+press Ctrl-C.
+
+See [docs/configuration.md](docs/configuration.md#servicesname) for the rest.
+
+
 ## Commands
 
 | Command | What it does |

@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/martin-k-m/capsule/internal/version"
 )
@@ -25,7 +26,17 @@ const RequirementKey = "capsule"
 const (
 	DefaultShell   = "/bin/sh"
 	DefaultWorkdir = "/workspace"
+
+	// DefaultReadyTimeout bounds the wait for one service's `ready` check. It is
+	// long enough for a database to initialise a fresh data directory on a cold
+	// machine, and short enough that a service which is never coming up says so
+	// while the developer is still watching.
+	DefaultReadyTimeout = 60 * time.Second
 )
+
+// ServicesSection is the table holding the sidecars a capsule needs, written
+// one service per subtable: [services.db].
+const ServicesSection = "services"
 
 // Capsule is a validated capsule.toml.
 //
@@ -50,11 +61,52 @@ type Capsule struct {
 	// Persist maps a named volume to an absolute path in the container. These
 	// survive teardown; nothing else does.
 	Persist map[string]string
+
+	// Services are the sidecars started alongside the capsule, sorted by name.
+	// A slice rather than a map because everything capsule does with them, from
+	// argv to messages, has to come out in the same order every time.
+	Services []Service
 }
+
+// Service is one sidecar container, declared as [services.db].
+//
+// It is started on the capsule's own network under its bare name, so the
+// capsule reaches it at that hostname: a service named `db` answers on `db`.
+// A service is a dependency, not a second view of the project, so nothing from
+// the host is mounted into one.
+type Service struct {
+	// Name is the subtable name, and the hostname the capsule reaches it at.
+	Name string
+
+	// Image is the base image the service runs. Required, like the capsule's own.
+	Image string
+
+	// Ready is a shell command run inside the service until it exits 0. A
+	// container that is running is not the same thing as a database that is
+	// accepting connections, and this is the difference.
+	Ready string
+
+	// Timeout bounds the wait for Ready. Defaults to DefaultReadyTimeout.
+	Timeout time.Duration
+
+	// Ports are published to the host as "host:container", for reaching a
+	// service from outside the capsule.
+	Ports []string
+
+	// Env is passed into the service container as -e KEY=VALUE.
+	Env map[string]string
+}
+
+// EnvKeys is the service's environment in sorted order, so its argv is stable.
+func (s *Service) EnvKeys() []string { return sortedKeys(s.Env) }
 
 var (
 	// nameRE matches what a container runtime accepts as a name component.
 	nameRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`)
+
+	// serviceNameRE is stricter than nameRE: a service name is resolved as a
+	// hostname on the capsule network, and a dot or an underscore is not one.
+	serviceNameRE = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$`)
 
 	rootKeys = map[string]bool{
 		"name": true, "image": true, "shell": true,
@@ -62,6 +114,11 @@ var (
 		RequirementKey: true,
 	}
 	listKeys = map[string]bool{"ports": true, "packages": true}
+
+	serviceKeys = map[string]bool{
+		"image": true, "ready": true, "timeout": true, "ports": true,
+	}
+	serviceListKeys = map[string]bool{"ports": true}
 )
 
 // Find returns the directory holding the nearest capsule.toml, starting at dir
@@ -127,12 +184,8 @@ func Parse(src, defaultName string) (*Capsule, error) {
 		return nil, err
 	}
 
-	for _, section := range sortedKeys(doc) {
-		switch section {
-		case "", "env", "persist":
-		default:
-			return nil, fmt.Errorf("unknown section [%s]", section)
-		}
+	if err := checkSections(doc); err != nil {
+		return nil, err
 	}
 
 	c := &Capsule{
@@ -190,10 +243,119 @@ func Parse(src, defaultName string) (*Capsule, error) {
 		c.Persist[key] = v.str
 	}
 
+	if c.Services, err = parseServices(doc); err != nil {
+		return nil, err
+	}
+
 	if err := c.validate(); err != nil {
 		return nil, err
 	}
 	return c, nil
+}
+
+// checkSections rejects a table capsule does not know, before any of them are
+// read. [services.NAME] and [services.NAME.env] are the only nested tables.
+func checkSections(doc map[string]table) error {
+	for _, section := range sortedKeys(doc) {
+		switch section {
+		case "", "env", "persist":
+			continue
+		case ServicesSection:
+			// [services] is a heading for the subtables under it. A key sitting
+			// directly beneath it names no service, so it is a mistake worth
+			// showing the shape for rather than accepting and ignoring.
+			if len(doc[section]) > 0 {
+				return fmt.Errorf("a service is declared as [%s.NAME], for example [%s.db]",
+					ServicesSection, ServicesSection)
+			}
+			continue
+		}
+		if _, _, ok := splitServiceSection(section); !ok {
+			return fmt.Errorf("unknown section [%s]", section)
+		}
+	}
+	return nil
+}
+
+// splitServiceSection reads a [services.NAME] or [services.NAME.env] header,
+// reporting which it is. ok is false for any other table name.
+func splitServiceSection(section string) (name string, isEnv, ok bool) {
+	parts := strings.Split(section, ".")
+	if len(parts) < 2 || len(parts) > 3 || parts[0] != ServicesSection || parts[1] == "" {
+		return "", false, false
+	}
+	if len(parts) == 3 && parts[2] != "env" {
+		return "", false, false
+	}
+	return parts[1], len(parts) == 3, true
+}
+
+// parseServices collects the [services.*] tables into sorted Services.
+func parseServices(doc map[string]table) ([]Service, error) {
+	byName := map[string]*Service{}
+
+	// sortedKeys puts [services.db] ahead of [services.db.env], so a service is
+	// always created by its own table before its environment is read into it.
+	for _, section := range sortedKeys(doc) {
+		name, isEnv, ok := splitServiceSection(section)
+		if !ok {
+			continue
+		}
+		s := byName[name]
+		if s == nil {
+			s = &Service{Name: name, Timeout: DefaultReadyTimeout, Env: map[string]string{}}
+			byName[name] = s
+		}
+		if isEnv {
+			for _, key := range sortedKeys(doc[section]) {
+				v := doc[section][key]
+				if v.isList {
+					return nil, fmt.Errorf("%s.%s must be a string", section, key)
+				}
+				s.Env[key] = v.str
+			}
+			continue
+		}
+		if err := readService(s, section, doc[section]); err != nil {
+			return nil, err
+		}
+	}
+
+	services := make([]Service, 0, len(byName))
+	for _, name := range sortedKeys(byName) {
+		services = append(services, *byName[name])
+	}
+	return services, nil
+}
+
+func readService(s *Service, section string, t table) error {
+	for _, key := range sortedKeys(t) {
+		v := t[key]
+		if !serviceKeys[key] {
+			return fmt.Errorf("unknown key %q in [%s]", key, section)
+		}
+		if v.isList != serviceListKeys[key] {
+			if serviceListKeys[key] {
+				return fmt.Errorf("%s.%s must be an array", section, key)
+			}
+			return fmt.Errorf("%s.%s must be a string", section, key)
+		}
+		switch key {
+		case "image":
+			s.Image = v.str
+		case "ready":
+			s.Ready = v.str
+		case "ports":
+			s.Ports = v.list
+		case "timeout":
+			d, err := time.ParseDuration(v.str)
+			if err != nil {
+				return fmt.Errorf("%s.timeout %q must be a duration such as \"90s\" or \"2m\"", section, v.str)
+			}
+			s.Timeout = d
+		}
+	}
+	return nil
 }
 
 // checkRequirement reads the `capsule` key out of a root table and reports
@@ -302,6 +464,39 @@ func (c *Capsule) validate() error {
 	for _, k := range sortedKeys(c.Env) {
 		if k == "" || strings.ContainsAny(k, "= \t") {
 			return fmt.Errorf("invalid env key %q", k)
+		}
+	}
+	for i := range c.Services {
+		if err := c.Services[i].validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) validate() error {
+	if !serviceNameRE.MatchString(s.Name) {
+		return fmt.Errorf("invalid service name %q: it is the hostname the capsule reaches the service at, so use letters, digits and dashes", s.Name)
+	}
+	if strings.TrimSpace(s.Image) == "" {
+		return fmt.Errorf("%s.%s: `image` is required: set it to the image the service runs", ServicesSection, s.Name)
+	}
+	// The same rule as the capsule's own image, for the same reason: it is
+	// handed to the runtime as an argument, where a leading dash is a flag.
+	if strings.HasPrefix(s.Image, "-") {
+		return fmt.Errorf("%s.%s: image %q must not start with \"-\": it is passed to the container runtime as an argument, where a leading dash would be read as a flag", ServicesSection, s.Name, s.Image)
+	}
+	if s.Timeout <= 0 {
+		return fmt.Errorf("%s.%s: timeout must be positive", ServicesSection, s.Name)
+	}
+	for _, p := range s.Ports {
+		if err := validatePort(p); err != nil {
+			return fmt.Errorf("%s.%s: %w", ServicesSection, s.Name, err)
+		}
+	}
+	for _, k := range s.EnvKeys() {
+		if k == "" || strings.ContainsAny(k, "= \t") {
+			return fmt.Errorf("%s.%s: invalid env key %q", ServicesSection, s.Name, k)
 		}
 	}
 	return nil

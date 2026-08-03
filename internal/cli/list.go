@@ -22,7 +22,11 @@ func runList(args []string) error {
 	// Containers are found by label rather than from a state file capsule keeps.
 	// There is nothing to drift out of sync with reality, and a capsule left
 	// behind by a killed terminal is still findable.
-	lines, err := rt.Lines(runtime.PsArgs("", "{{.Names}}\t{{.Image}}\t{{.Status}}")...)
+	//
+	// The zero filter is deliberate: this lists services alongside capsules,
+	// because it is the view you reach for to find what is still running, and
+	// `capsule down` destroys exactly what it shows.
+	lines, err := rt.Lines(runtime.PsArgs(runtime.PsFilter{}, "{{.Names}}\t{{.Image}}\t{{.Status}}")...)
 	if err != nil {
 		return err
 	}

@@ -58,6 +58,22 @@ func (r *Runtime) Output(args ...string) (string, error) {
 	return string(out), nil
 }
 
+// Combined runs the runtime and returns stdout and stderr together, or nothing
+// at all if it failed.
+//
+// It exists for `logs`, where most images write their diagnostics to stderr. A
+// failed run is discarded rather than returned because what it printed is the
+// runtime complaining, not the container talking, and handing back "No such
+// container" as if it were a database's last words would be worse than saying
+// nothing.
+func (r *Runtime) Combined(args ...string) string {
+	out, err := exec.Command(r.Bin, args...).CombinedOutput()
+	if err != nil {
+		return ""
+	}
+	return string(out)
+}
+
 // Lines runs the runtime and returns non-empty trimmed stdout lines.
 func (r *Runtime) Lines(args ...string) ([]string, error) {
 	out, err := r.Output(args...)

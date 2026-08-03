@@ -22,7 +22,9 @@ func runShell(args []string) error {
 		return err
 	}
 
-	names, err := rt.Lines(runtime.PsArgs(c.Name, "{{.Names}}")...)
+	// Filtered to the capsule itself: `capsule shell` opens a second window onto
+	// your environment, never onto the database sitting next to it.
+	names, err := rt.Lines(runtime.PsArgs(runtime.PsFilter{Name: c.Name, Role: runtime.RoleCapsule}, "{{.Names}}")...)
 	if err != nil {
 		return err
 	}
