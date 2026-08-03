@@ -15,7 +15,7 @@ import (
 // -ldflags "-X github.com/martin-k-m/capsule/internal/version.Current=v0.2.0".
 // A build from source keeps the -dev suffix, so `capsule version` never claims
 // to be a release it is not.
-var Current = "0.2.0-dev"
+var Current = "1.0.0"
 
 // Triple is a parsed major.minor.patch.
 type Triple [3]int

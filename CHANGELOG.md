@@ -4,7 +4,9 @@ All notable changes to capsule are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-08-03
+
+A capsule can declare the services it needs, and the config contract is settled: a version key, an upward search, and no argv injection.
 
 Breaking changes made deliberately before 1.0, while they are still cheap.
 
