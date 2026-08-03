@@ -98,6 +98,12 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v8
         with:
+          # Named explicitly. Without a pattern this downloads every artifact in
+          # the run, and docker/build-push-action quietly adds one of its own, a
+          # .dockerbuild build record, which this cannot extract. All five
+          # binaries downloaded and then the step failed on the sixth, which
+          # made it look like a flaky runner across three separate runs.
+          pattern: capsule-*
           path: out
           merge-multiple: true
 
