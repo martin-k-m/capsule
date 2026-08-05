@@ -38,6 +38,10 @@ const (
 // one service per subtable: [services.db].
 const ServicesSection = "services"
 
+// TasksSection is the table holding a project's named commands, written as
+// `[tasks]` with one `name = "command"` per line.
+const TasksSection = "tasks"
+
 // Capsule is a validated capsule.toml.
 //
 // Everything here describes a container that is thrown away on exit. The one
@@ -61,6 +65,14 @@ type Capsule struct {
 	// Persist maps a named volume to an absolute path in the container. These
 	// survive teardown; nothing else does.
 	Persist map[string]string
+
+	// Tasks are the project's named commands, keyed by name. `capsule run test`
+	// looks one up here and runs it inside the capsule.
+	//
+	// A map rather than a slice because, unlike a service, a task never reaches
+	// argv alongside its siblings: exactly one is looked up and run. Anything
+	// that lists them sorts them, which is what TaskNames is for.
+	Tasks map[string]string
 
 	// Services are the sidecars started alongside the capsule, sorted by name.
 	// A slice rather than a map because everything capsule does with them, from
@@ -103,6 +115,12 @@ func (s *Service) EnvKeys() []string { return sortedKeys(s.Env) }
 var (
 	// nameRE matches what a container runtime accepts as a name component.
 	nameRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`)
+
+	// taskNameRE is what can be typed after `capsule run`. Deliberately narrow:
+	// a task name reaches no shell and no argv, but a name with a space in it
+	// cannot be typed unambiguously, and one starting with a dash would be read
+	// as a flag.
+	taskNameRE = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`)
 
 	// serviceNameRE is stricter than nameRE: a service name is resolved as a
 	// hostname on the capsule network, and a dot or an underscore is not one.
@@ -195,6 +213,7 @@ func Parse(src, defaultName string) (*Capsule, error) {
 		Requirement: requirement,
 		Env:         map[string]string{},
 		Persist:     map[string]string{},
+		Tasks:       map[string]string{},
 	}
 
 	root := doc[""]
@@ -243,6 +262,14 @@ func Parse(src, defaultName string) (*Capsule, error) {
 		c.Persist[key] = v.str
 	}
 
+	for _, key := range sortedKeys(doc[TasksSection]) {
+		v := doc[TasksSection][key]
+		if v.isList {
+			return nil, fmt.Errorf("%s.%s must be a string", TasksSection, key)
+		}
+		c.Tasks[key] = v.str
+	}
+
 	if c.Services, err = parseServices(doc); err != nil {
 		return nil, err
 	}
@@ -258,7 +285,7 @@ func Parse(src, defaultName string) (*Capsule, error) {
 func checkSections(doc map[string]table) error {
 	for _, section := range sortedKeys(doc) {
 		switch section {
-		case "", "env", "persist":
+		case "", "env", "persist", TasksSection:
 			continue
 		case ServicesSection:
 			// [services] is a heading for the subtables under it. A key sitting
@@ -466,6 +493,14 @@ func (c *Capsule) validate() error {
 			return fmt.Errorf("invalid env key %q", k)
 		}
 	}
+	for _, name := range c.TaskNames() {
+		if !taskNameRE.MatchString(name) {
+			return fmt.Errorf("invalid task name %q: use letters, digits, dash or underscore, so it can be typed as `capsule run NAME`", name)
+		}
+		if strings.TrimSpace(c.Tasks[name]) == "" {
+			return fmt.Errorf("%s.%s is empty: give it the command to run", TasksSection, name)
+		}
+	}
 	for i := range c.Services {
 		if err := c.Services[i].validate(); err != nil {
 			return err
@@ -536,6 +571,16 @@ func (c *Capsule) HasService(name string) bool {
 		}
 	}
 	return false
+}
+
+// TaskNames lists the declared tasks in sorted order, so `capsule run` with no
+// argument prints the same list every time.
+func (c *Capsule) TaskNames() []string { return sortedKeys(c.Tasks) }
+
+// HasTask reports whether a task is declared.
+func (c *Capsule) HasTask(name string) bool {
+	_, ok := c.Tasks[name]
+	return ok
 }
 
 func (c *Capsule) EnvKeys() []string     { return sortedKeys(c.Env) }

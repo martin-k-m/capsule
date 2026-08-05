@@ -65,6 +65,11 @@ CGO_ENABLED = "0"
 # The only state a capsule keeps.
 [persist]
 gomod = "/go/pkg/mod"
+
+# The commands this project actually uses, written down.
+[tasks]
+test = "go test ./..."
+lint = "gofmt -l . && go vet ./..."
 ```
 
 | Key | Meaning |
@@ -78,6 +83,7 @@ gomod = "/go/pkg/mod"
 | `packages` | Installed at start with the image's `apk`/`apt-get`/`dnf` |
 | `[env]` | Environment variables inside the capsule |
 | `[persist]` | Named volumes that survive teardown |
+| `[tasks]` | Named commands, run with `capsule run NAME` |
 
 `packages` is a convenience for a one-off tool, not a build step. If a capsule
 needs the same five packages every time, bake them into an image instead.
@@ -127,9 +133,17 @@ See [docs/configuration.md](docs/configuration.md#servicesname) for the rest.
 | `capsule up -- <cmd>` | Run one command in a fresh capsule and tear it down |
 | `capsule up --dry-run` | Print the exact runtime command instead of running it |
 | `capsule shell` | Open another shell in a capsule that is already running |
+| `capsule exec <cmd>` | Run one command in a running capsule and exit with its status |
+| `capsule run <task>` | Run a task declared in `[tasks]` |
+| `capsule logs [--follow]` | Show a capsule's or a service's output |
 | `capsule list` | List running capsules |
 | `capsule down [--all]` | Destroy capsules that outlived their shell |
 | `capsule doctor` | Check the runtime, the config, the image and the volumes |
+
+A task is a shell command, not an argv, so pipes, `&&` and variable expansion
+work the way they do when you paste one in. Anything after the task name is
+appended, quoted, so `test = "go test"` makes `capsule run test ./internal/...`
+work. `capsule run` with no task lists what there is.
 
 `capsule up -- <cmd>` exits with the command's own status, so it drops into a
 CI step or a shell pipeline without wrapping:

@@ -459,3 +459,100 @@ func TestServiceHelpersOnACapsuleWithNoServices(t *testing.T) {
 		t.Error("HasService should be false when nothing is declared")
 	}
 }
+
+func mustParse(t *testing.T, src string) *Capsule {
+	t.Helper()
+	c, err := Parse(src, "project")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	return c
+}
+
+func TestParseReadsTasks(t *testing.T) {
+	c := mustParse(t, `
+image = "golang:1.26"
+
+[tasks]
+test = "go test ./..."
+lint = "gofmt -l . && go vet ./..."
+`)
+	if got := c.Tasks["test"]; got != "go test ./..." {
+		t.Errorf("test task = %q", got)
+	}
+	// A task is a shell command, not an argv, so the operators in it are the
+	// point rather than something to escape.
+	if got := c.Tasks["lint"]; got != "gofmt -l . && go vet ./..." {
+		t.Errorf("lint task = %q", got)
+	}
+}
+
+func TestTaskNamesAreSorted(t *testing.T) {
+	c := mustParse(t, `
+image = "x"
+
+[tasks]
+zebra = "z"
+alpha = "a"
+middle = "m"
+`)
+	got := c.TaskNames()
+	want := []string{"alpha", "middle", "zebra"}
+	if len(got) != len(want) {
+		t.Fatalf("TaskNames() = %v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("TaskNames() = %v, want %v", got, want)
+		}
+	}
+}
+
+func TestHasTask(t *testing.T) {
+	c := mustParse(t, "image = \"x\"\n\n[tasks]\ntest = \"go test\"\n")
+	if !c.HasTask("test") {
+		t.Error("HasTask(test) = false")
+	}
+	if c.HasTask("Test") {
+		// Unlike a service name, a task name is typed verbatim after
+		// `capsule run`, so matching loosely would make the listing a lie.
+		t.Error("HasTask is case-insensitive")
+	}
+}
+
+func TestACapsuleWithNoTasksHasAnEmptyMap(t *testing.T) {
+	// Nil would make `capsule run` panic on a file that simply declares none,
+	// which is most of them.
+	c := mustParse(t, "image = \"x\"\n")
+	if c.Tasks == nil {
+		t.Fatal("Tasks is nil")
+	}
+	if len(c.TaskNames()) != 0 {
+		t.Errorf("TaskNames() = %v", c.TaskNames())
+	}
+}
+
+func TestAnEmptyTaskIsRejected(t *testing.T) {
+	// A task that runs nothing exits 0, which is the worst possible answer for
+	// something a CI job is about to believe.
+	_, err := Parse("image = \"x\"\n\n[tasks]\ntest = \"   \"\n", "p")
+	if err == nil {
+		t.Fatal("an empty task was accepted")
+	}
+}
+
+func TestAnUntypeableTaskNameIsRejected(t *testing.T) {
+	for _, name := range []string{`"go test"`, `"-flag"`, `"a b"`} {
+		src := "image = \"x\"\n\n[tasks]\n" + name + " = \"go test\"\n"
+		if _, err := Parse(src, "p"); err == nil {
+			t.Errorf("task name %s was accepted", name)
+		}
+	}
+}
+
+func TestATaskMustBeAString(t *testing.T) {
+	_, err := Parse("image = \"x\"\n\n[tasks]\ntest = [\"go\", \"test\"]\n", "p")
+	if err == nil {
+		t.Fatal("a list task was accepted")
+	}
+}
