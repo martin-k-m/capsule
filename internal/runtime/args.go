@@ -209,9 +209,17 @@ func StateArgs(container string) []string {
 }
 
 // LogsArgs reads the tail of a container's output, for explaining a service
-// that never became ready.
-func LogsArgs(container string, lines int) []string {
-	return []string{"logs", "--tail", strconv.Itoa(lines), container}
+// that never became ready and for `capsule logs`.
+//
+// `follow` streams until interrupted. The flag goes before the container, since
+// a runtime reads its own options first and a name that begins with a dash
+// would otherwise be read as one.
+func LogsArgs(container string, lines int, follow bool) []string {
+	args := []string{"logs", "--tail", strconv.Itoa(lines)}
+	if follow {
+		args = append(args, "--follow")
+	}
+	return append(args, container)
 }
 
 // RmArgs force-removes containers by name.

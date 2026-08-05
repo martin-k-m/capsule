@@ -209,3 +209,29 @@ func TestPsArgsWithoutAServiceDoesNotFilterOnOne(t *testing.T) {
 		t.Errorf("capsule query should not filter on a service label\ngot: %s", got)
 	}
 }
+
+func TestLogsArgsCarriesTheTail(t *testing.T) {
+	got := joined(LogsArgs("capsule-proj-abc", 50, false))
+	if !strings.Contains(got, "logs") || !strings.Contains(got, "--tail 50") {
+		t.Errorf("LogsArgs = %s", got)
+	}
+	if strings.Contains(got, "--follow") {
+		t.Errorf("follow should be off\ngot: %s", got)
+	}
+}
+
+func TestLogsArgsFollows(t *testing.T) {
+	got := joined(LogsArgs("capsule-proj-abc", 10, true))
+	if !strings.Contains(got, "--follow") {
+		t.Errorf("LogsArgs = %s", got)
+	}
+}
+
+func TestLogsArgsPutsTheContainerLast(t *testing.T) {
+	// A runtime reads its own options first, so a container name arriving
+	// before them would be read as one.
+	args := LogsArgs("capsule-proj-abc", 10, true)
+	if args[len(args)-1] != "capsule-proj-abc" {
+		t.Errorf("container should be last, got %v", args)
+	}
+}

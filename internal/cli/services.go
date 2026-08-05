@@ -140,7 +140,7 @@ func (s *stack) state(container string) string {
 // it start by hand instead, which is the same command it just ran without the
 // capsule-specific flags.
 func (s *stack) explain(svc config.Service, container string) string {
-	if out := strings.TrimSpace(s.rt.Combined(runtime.LogsArgs(container, logTail)...)); out != "" {
+	if out := strings.TrimSpace(s.rt.Combined(runtime.LogsArgs(container, logTail, false)...)); out != "" {
 		return "Last output from " + svc.Name + ":\n" + indent(out)
 	}
 	return "Its container is already gone, and its logs with it. Start it by hand to see why:\n  " +

@@ -22,6 +22,7 @@ gone, unless you named it under `[persist]`.
 capsule init      # writes capsule.toml, guessing from your project
 capsule up        # you are now inside; type exit and it never existed
 capsule exec go test ./...   # or run one command and get its exit code
+capsule logs --service db    # why did the database not come up
 ```
 
 ## Install

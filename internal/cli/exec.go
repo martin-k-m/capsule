@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/martin-k-m/capsule/internal/config"
 	"github.com/martin-k-m/capsule/internal/runtime"
 )
 
@@ -41,32 +42,9 @@ func runExec(args []string) error {
 		return err
 	}
 
-	// A sidecar is addressed by name so `capsule exec --service db psql` reaches
-	// the database rather than the capsule that talks to it.
-	filter := runtime.PsFilter{Name: c.Name, Role: runtime.RoleCapsule}
-	what := fmt.Sprintf("capsule named %q", c.Name)
-	if service != "" {
-		if !c.HasService(service) {
-			return fmt.Errorf(
-				"capsule exec: no service %q in capsule.toml; %s",
-				service, describeServices(c.ServiceNames()))
-		}
-		filter = runtime.PsFilter{Name: c.Name, Role: runtime.RoleService, Service: service}
-		what = fmt.Sprintf("service %q", service)
-	}
-
-	names, err := rt.Lines(runtime.PsArgs(filter, "{{.Names}}")...)
+	target, err := resolveTarget(rt, c, service)
 	if err != nil {
 		return err
-	}
-	if len(names) == 0 {
-		return fmt.Errorf("no running %s, start one with `capsule up`", what)
-	}
-
-	target := names[0]
-	if len(names) > 1 {
-		fmt.Fprintf(os.Stderr, "capsule: %d containers match %s; using %s\n",
-			len(names), what, target)
 	}
 
 	// Interactive only when there is a terminal on both ends and the caller did
@@ -90,6 +68,40 @@ func runExec(args []string) error {
 		return exitOrErr(err, runtime.ExitCode(err))
 	}
 	return nil
+}
+
+// resolveTarget finds the running container a command should act on: the
+// capsule itself, or one of its declared sidecars.
+//
+// Shared by exec and logs. Both have to turn "--service db" into a container
+// name, report the same way when the name is not declared, and pick the same
+// one when several match; two copies of that would drift on the third command
+// that needs it.
+func resolveTarget(rt *runtime.Runtime, c *config.Capsule, service string) (string, error) {
+	filter := runtime.PsFilter{Name: c.Name, Role: runtime.RoleCapsule}
+	what := fmt.Sprintf("capsule named %q", c.Name)
+	if service != "" {
+		if !c.HasService(service) {
+			return "", fmt.Errorf(
+				"no service %q in capsule.toml; %s",
+				service, describeServices(c.ServiceNames()))
+		}
+		filter = runtime.PsFilter{Name: c.Name, Role: runtime.RoleService, Service: service}
+		what = fmt.Sprintf("service %q", service)
+	}
+
+	names, err := rt.Lines(runtime.PsArgs(filter, "{{.Names}}")...)
+	if err != nil {
+		return "", err
+	}
+	if len(names) == 0 {
+		return "", fmt.Errorf("no running %s, start one with `capsule up`", what)
+	}
+	if len(names) > 1 {
+		fmt.Fprintf(os.Stderr, "capsule: %d containers match %s; using %s\n",
+			len(names), what, names[0])
+	}
+	return names[0], nil
 }
 
 // describeServices names what is available, so a typo says what to type instead.

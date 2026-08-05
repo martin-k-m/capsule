@@ -126,6 +126,25 @@ mixed into what it is parsing. `-i` stays on regardless, so
 `capsule.toml` is an error that lists the ones that are, rather than a container
 lookup that finds nothing and says so in the runtime's words.
 
+## `capsule logs`
+
+Shows a container's output.
+
+```sh
+capsule logs                      # the capsule itself
+capsule logs --service db         # a sidecar
+capsule logs --service db --follow --tail 50
+```
+
+A service that will not start is the commonest way a capsule fails, and the
+only way to see why was to wait for `capsule up` to report the readiness
+timeout, which prints a tail once and throws it away. The runtime kept the
+output the whole time; this is the command that asks for it.
+
+`--follow` streams until interrupted, exactly as the runtime's own command
+would. `--tail` defaults to 200 lines: enough for a stack trace, short enough
+to read.
+
 ## `capsule list`
 
 Lists running capsules by name, image, and status, across every project on the
