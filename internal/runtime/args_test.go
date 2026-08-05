@@ -235,3 +235,24 @@ func TestLogsArgsPutsTheContainerLast(t *testing.T) {
 		t.Errorf("container should be last, got %v", args)
 	}
 }
+
+func TestCpArgsDoesNotPreserveOwnership(t *testing.T) {
+	// --archive preserves uid and gid, which is wrong in the direction that
+	// matters: a file copied out arrives owned by a user that exists only inside
+	// the container, and the developer who asked for it cannot read it.
+	args := CpArgs("demo:/tmp/x", "./x")
+	for _, a := range args {
+		if a == "--archive" || a == "-a" {
+			t.Fatalf("CpArgs uses %s: %v", a, args)
+		}
+	}
+	if len(args) != 3 || args[0] != "cp" {
+		t.Fatalf("CpArgs = %v", args)
+	}
+}
+
+func TestContainerPathJoinsWithAColon(t *testing.T) {
+	if got := ContainerPath("demo-a1b2", "/tmp/x"); got != "demo-a1b2:/tmp/x" {
+		t.Errorf("ContainerPath = %q", got)
+	}
+}

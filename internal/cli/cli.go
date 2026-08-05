@@ -34,6 +34,7 @@ var commands = []command{
 	{"shell", "open another shell in a running capsule", runShell},
 	{"exec", "run one command in a running capsule and exit with its status", runExec},
 	{"run", "run a task declared in capsule.toml", runRun},
+	{"cp", "copy a file into or out of a running capsule", runCp},
 	{"logs", "show a capsule's or a service's output", runLogs},
 	{"list", "list running capsules", runList},
 	{"down", "destroy running capsules", runDown},

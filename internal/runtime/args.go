@@ -411,3 +411,28 @@ func PsArgs(f PsFilter, format string) []string {
 	}
 	return append(args, "--format", format)
 }
+
+// CpArgs copies a file or directory between the host and a container.
+//
+// The runtime spells both directions with the same verb and tells them apart by
+// which side carries a `container:` prefix, so this takes the two sides already
+// formed and does not try to be clever about which is which. `ContainerPath`
+// builds the prefixed side.
+//
+// `--archive` is deliberately absent. It preserves uid and gid, which is wrong
+// in the direction that matters: a file copied out of a container arrives owned
+// by a user that exists only inside it, and the developer who asked for the copy
+// then cannot read their own file.
+func CpArgs(from, to string) []string {
+	return []string{"cp", from, to}
+}
+
+// ContainerPath forms the `name:/path` side of a copy.
+//
+// The path is used as given rather than normalised. It is a path inside the
+// container, so the host's separator is not the one that applies, and
+// filepath.ToSlash on Windows would silently rewrite a Linux path that was
+// already correct.
+func ContainerPath(container, path string) string {
+	return container + ":" + path
+}

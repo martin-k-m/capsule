@@ -136,6 +136,7 @@ See [docs/configuration.md](docs/configuration.md#servicesname) for the rest.
 | `capsule exec <cmd>` | Run one command in a running capsule and exit with its status |
 | `capsule run <task>` | Run a task declared in `[tasks]` |
 | `capsule logs [--follow]` | Show a capsule's or a service's output |
+| `capsule cp <src> <dst>` | Copy a file into or out of a running capsule |
 | `capsule list` | List running capsules |
 | `capsule down [--all]` | Destroy capsules that outlived their shell |
 | `capsule doctor` | Check the runtime, the config, the image and the volumes |
@@ -144,6 +145,14 @@ A task is a shell command, not an argv, so pipes, `&&` and variable expansion
 work the way they do when you paste one in. Anything after the task name is
 appended, quoted, so `test = "go test"` makes `capsule run test ./internal/...`
 work. `capsule run` with no task lists what there is.
+
+`capsule cp` writes the direction out rather than guessing it: the side that
+lives inside the capsule carries a `capsule:` prefix, and a copy with prefixes on
+both sides or neither is refused instead of resolved.
+
+```sh
+capsule cp capsule:/tmp/report.html ./report.html
+```
 
 `capsule up -- <cmd>` exits with the command's own status, so it drops into a
 CI step or a shell pipeline without wrapping:
