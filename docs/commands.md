@@ -98,6 +98,34 @@ If several capsules with this project's name are running, it attaches to the
 first and says which on stderr. If none are, it says so and suggests `capsule
 up` rather than silently starting one.
 
+## `capsule exec`
+
+Runs one command inside a running capsule and exits with its status.
+
+```sh
+capsule exec go test ./...
+capsule exec --service db psql -U postgres
+capsule exec -- ls -la          # -- when the command starts with a dash
+```
+
+`shell` is for a person and this is for a script. A CI job, a git hook, a
+Makefile target or an editor's "run tests" button all want to run one command in
+the project's environment and read the result, and the only way to do that
+before was to open an interactive shell and type into it.
+
+**The exit code is the point.** `capsule exec go test ./...` fails when the
+tests fail. Without that, every use of it in CI passes silently.
+
+A TTY is requested only when stdin and stdout are both terminals, and never with
+`--no-tty`. A TTY in a pipeline is worse than useless: the runtime turns on line
+editing and colour, and whatever is reading the output gets escape sequences
+mixed into what it is parsing. `-i` stays on regardless, so
+`echo hi | capsule exec cat` works.
+
+`--service NAME` runs in a sidecar instead of the capsule. A name that is not in
+`capsule.toml` is an error that lists the ones that are, rather than a container
+lookup that finds nothing and says so in the runtime's words.
+
 ## `capsule list`
 
 Lists running capsules by name, image, and status, across every project on the

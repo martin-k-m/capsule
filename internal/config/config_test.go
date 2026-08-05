@@ -418,3 +418,44 @@ func TestLiteralStringsAreNotUnescaped(t *testing.T) {
 		t.Errorf("literal string was altered: %q", c.Env["P"])
 	}
 }
+
+func TestServiceNamesAndHasService(t *testing.T) {
+	c, err := Parse(`
+image = "alpine"
+
+[services.db]
+image = "postgres:16"
+
+[services.cache]
+image = "redis:7"
+`, "proj")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+
+	// Sorted, not in declaration order: Services itself is sorted by name so
+	// that argv and anything printed from it is stable between runs.
+	names := c.ServiceNames()
+	if len(names) != 2 || names[0] != "cache" || names[1] != "db" {
+		t.Errorf("ServiceNames() = %v, want [cache db]", names)
+	}
+	if !c.HasService("db") || !c.HasService("cache") {
+		t.Error("HasService should find a declared service")
+	}
+	if c.HasService("nope") {
+		t.Error("HasService should not invent one")
+	}
+}
+
+func TestServiceHelpersOnACapsuleWithNoServices(t *testing.T) {
+	c, err := Parse(`image = "alpine"`, "proj")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if len(c.ServiceNames()) != 0 {
+		t.Errorf("ServiceNames() = %v, want empty", c.ServiceNames())
+	}
+	if c.HasService("db") {
+		t.Error("HasService should be false when nothing is declared")
+	}
+}

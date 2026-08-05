@@ -518,5 +518,25 @@ func validatePort(p string) error {
 
 // EnvKeys and PersistKeys expose the sorted key order used everywhere capsule
 // turns a capsule into runtime flags, so callers stay deterministic too.
+// ServiceNames lists the declared sidecars, sorted by name like Services
+// itself, so anything printed from it is stable between runs.
+func (c *Capsule) ServiceNames() []string {
+	names := make([]string, 0, len(c.Services))
+	for _, s := range c.Services {
+		names = append(names, s.Name)
+	}
+	return names
+}
+
+// HasService reports whether name is a declared sidecar.
+func (c *Capsule) HasService(name string) bool {
+	for _, s := range c.Services {
+		if s.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Capsule) EnvKeys() []string     { return sortedKeys(c.Env) }
 func (c *Capsule) PersistKeys() []string { return sortedKeys(c.Persist) }

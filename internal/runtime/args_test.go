@@ -184,3 +184,28 @@ func TestPsArgsFiltersByLabel(t *testing.T) {
 		t.Errorf("PsArgs should narrow to a role: %s", capsules)
 	}
 }
+
+func TestPsArgsNarrowsToOneService(t *testing.T) {
+	// `capsule exec --service db` has to reach the db sidecar and not the
+	// capsule beside it, which carries the same capsule name label.
+	got := joined(PsArgs(PsFilter{Name: "proj", Role: RoleService, Service: "db"}, "{{.Names}}"))
+
+	for _, want := range []string{
+		"label=" + LabelName + "=proj",
+		"label=" + LabelRole + "=" + RoleService,
+		"label=" + LabelService + "=db",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("PsArgs missing %q\ngot: %s", want, got)
+		}
+	}
+}
+
+func TestPsArgsWithoutAServiceDoesNotFilterOnOne(t *testing.T) {
+	// A capsule carries no service label, so filtering on an empty one would
+	// match nothing at all.
+	got := joined(PsArgs(PsFilter{Name: "proj", Role: RoleCapsule}, "{{.Names}}"))
+	if strings.Contains(got, LabelService) {
+		t.Errorf("capsule query should not filter on a service label\ngot: %s", got)
+	}
+}

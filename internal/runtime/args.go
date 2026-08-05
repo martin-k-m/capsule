@@ -383,6 +383,10 @@ type PsFilter struct {
 
 	// Role is RoleCapsule or RoleService.
 	Role string
+
+	// Service narrows to one named sidecar. Only meaningful with
+	// Role == RoleService, since a capsule carries no service label.
+	Service string
 }
 
 // PsArgs lists capsule's own containers, narrowed by f.
@@ -393,6 +397,9 @@ func PsArgs(f PsFilter, format string) []string {
 	}
 	if f.Role != "" {
 		args = append(args, "--filter", "label="+LabelRole+"="+f.Role)
+	}
+	if f.Service != "" {
+		args = append(args, "--filter", "label="+LabelService+"="+f.Service)
 	}
 	return append(args, "--format", format)
 }

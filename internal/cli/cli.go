@@ -32,6 +32,7 @@ var commands = []command{
 	{"init", "write a starter capsule.toml for this project", runInit},
 	{"up", "create an ephemeral environment and enter it", runUp},
 	{"shell", "open another shell in a running capsule", runShell},
+	{"exec", "run one command in a running capsule and exit with its status", runExec},
 	{"list", "list running capsules", runList},
 	{"down", "destroy running capsules", runDown},
 	{"doctor", "check the runtime and this project's capsule.toml", runDoctor},
