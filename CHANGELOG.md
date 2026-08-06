@@ -4,6 +4,31 @@ All notable changes to capsule are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-08-06
+
+### Added
+
+- **`capsule exec <cmd>`**: runs one command in a running capsule and exits with
+  its status. `capsule shell` covered the interactive case and nothing covered
+  the scripted one, so a CI job could not read an exit code without opening a
+  shell and typing into it.
+
+- **`capsule logs [--service NAME] [--follow] [--tail N]`**: a service that will
+  not start is the commonest way a capsule fails, and the output existed between
+  runs with nothing to surface it.
+
+- **`capsule run <task>` and a `[tasks]` table**: the project's real invocation,
+  written down in the file that already describes the environment. A task is a
+  shell command rather than an argv, because that is what people paste in.
+  Trailing arguments are appended and quoted; the task text is not, since it is
+  the project's own and the arguments came off the command line.
+
+- **`capsule cp <src> <dst>`**: copies a file into or out of a running capsule.
+  The side inside carries a `capsule:` prefix, and a copy with prefixes on both
+  sides or neither is refused rather than resolved, because picking one writes
+  over a file. `--archive` is deliberately absent: it preserves uid and gid, so
+  a file copied out arrives owned by a user that exists only inside.
+
 ## [1.0.0] - 2026-08-03
 
 A capsule can declare the services it needs, and the config contract is settled: a version key, an upward search, and no argv injection.
