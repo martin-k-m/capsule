@@ -53,21 +53,28 @@ func runExec(args []string) error {
 	// escape sequences mixed into what it is parsing.
 	//
 	// `-i` stays on regardless, so `echo input | capsule exec cat` works.
-	execArgs := []string{"exec", "-i"}
-	if !noTTY && isTerminal(os.Stdin) && isTerminal(os.Stdout) {
-		execArgs = append(execArgs, "-t")
-	}
+	tty := !noTTY && isTerminal(os.Stdin) && isTerminal(os.Stdout)
 
-	// `--` before the command, so a command starting with a dash is not read as
-	// a flag to the runtime. `capsule exec -- ls -la` and `capsule exec ls -la`
-	// both have to reach `ls`.
-	execArgs = append(execArgs, target)
-	execArgs = append(execArgs, command...)
-
-	if err := rt.Exec(execArgs...); err != nil {
+	if err := rt.Exec(execCommandArgs(target, tty, command)...); err != nil {
 		return exitOrErr(err, runtime.ExitCode(err))
 	}
 	return nil
+}
+
+// execCommandArgs builds the argv for running one command in a container.
+//
+// It is a pure function so the flags a command turns into can be checked
+// without a runtime present. The `--` before the command is what keeps a
+// command whose first word starts with a dash from being read as a flag to the
+// runtime: `capsule exec -- --version` has to reach the program, not the
+// runtime's own `exec`.
+func execCommandArgs(target string, tty bool, command []string) []string {
+	args := []string{"exec", "-i"}
+	if tty {
+		args = append(args, "-t")
+	}
+	args = append(args, target, "--")
+	return append(args, command...)
 }
 
 // resolveTarget finds the running container a command should act on: the
