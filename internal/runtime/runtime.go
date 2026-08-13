@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 )
 
@@ -30,9 +29,25 @@ func Detect() (*Runtime, error) {
 	return nil, errors.New("no container runtime on PATH, install Docker or Podman")
 }
 
-// Name is the short name of the runtime binary, for messages.
+// Name is the short name of the runtime binary, for messages: the final path
+// segment with any extension stripped, e.g. "docker" from both
+// "/usr/bin/docker" and `C:\Program Files\Docker\docker.exe`.
+//
+// This deliberately does not use path/filepath, whose separator is fixed to
+// the host OS at compile time: on Linux, filepath.Base treats only '/' as a
+// separator, so a Windows-style Bin (LookPath's result when capsule itself
+// runs on Windows) would come back unchanged instead of trimmed. Bin's
+// separator depends on the OS capsule is running on, not the OS running this
+// code, so both '/' and '\' are recognized here regardless of host.
 func (r *Runtime) Name() string {
-	return strings.TrimSuffix(filepath.Base(r.Bin), filepath.Ext(r.Bin))
+	name := r.Bin
+	if i := strings.LastIndexAny(name, `/\`); i >= 0 {
+		name = name[i+1:]
+	}
+	if i := strings.LastIndex(name, "."); i > 0 {
+		name = name[:i]
+	}
+	return name
 }
 
 // Exec runs the runtime wired to the current terminal.
