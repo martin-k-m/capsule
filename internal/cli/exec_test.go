@@ -71,10 +71,6 @@ func TestDescribeServices(t *testing.T) {
 	}
 }
 
-// `capsule shell` used to pass `-it` unconditionally while up, exec and run all
-// gated it on having a terminal. That made shell the one command that could not
-// run from a script: the runtime rejects `-t` without a TTY with "the input
-// device is not a TTY", which says nothing about the capsule.
 func TestShellCommandArgsGatesTheTTY(t *testing.T) {
 	withTTY := shellCommandArgs("capsule-demo-abcd1234", true, "/bin/sh")
 	want := "exec -i -t capsule-demo-abcd1234 /bin/sh"

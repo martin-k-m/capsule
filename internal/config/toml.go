@@ -32,12 +32,9 @@ func parseTOML(src string) (map[string]table, error) {
 	doc := map[string]table{"": {}}
 	current := ""
 
-	// A UTF-8 BOM is a byte-order mark, not content. Windows editors and
-	// PowerShell's own `Set-Content -Encoding utf8` write one, and it lands on
-	// the first key of the file, where it turns `image` into a key no reader
-	// recognises and produces an error naming a word that looks correct on
-	// screen. Strip it here rather than in each caller, since it can only ever
-	// appear at the very start of the document.
+	// Windows editors write a UTF-8 BOM, which otherwise lands on the first key
+	// and makes `image` unrecognisable. Only ever valid at the very start, so it
+	// is stripped here rather than in each caller.
 	src = strings.TrimPrefix(src, "\uFEFF")
 
 	lines := strings.Split(strings.ReplaceAll(src, "\r\n", "\n"), "\n")
