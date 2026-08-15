@@ -8,7 +8,7 @@ internal/runtime/  runtime detection, argv construction, ps filters
 internal/cli/      command dispatch: init, up, shell, list, down, doctor
 ```
 
-Roughly a thousand lines of Go and no third-party dependencies.
+About 2,900 lines of Go and no third-party dependencies.
 
 ## It drives a runtime, it does not replace one
 
