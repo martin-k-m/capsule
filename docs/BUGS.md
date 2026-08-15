@@ -4,7 +4,7 @@ Defects that got into capsule, how each one was actually caught, and what stops
 it coming back. Written down because the interesting part of a bug is rarely the
 fix.
 
-The list is short. capsule is about a thousand lines of Go with no dependencies
+The list is short. capsule is about 2,900 lines of Go with no dependencies
 and it has not been running in production anywhere, so I am not going to dress
 this up as a long incident history. What is here is real: every entry names a
 commit you can read.
