@@ -88,6 +88,10 @@ just cloned should not be able to choose one.
 Must be absolute. The directory holding `capsule.toml` is bind-mounted here, so
 it is the one path inside the capsule whose contents outlive it.
 
+It may not contain a `:`. The runtime splits a mount argument on that character,
+so a workdir of `/src:ro` would not name a directory called `src:ro`, it would
+mount your project read-only. The same rule applies to a `[persist]` target.
+
 ### `ports`
 
 Each entry is `"host:container"`, both numeric and in 1-65535. A bare `"8080"` is

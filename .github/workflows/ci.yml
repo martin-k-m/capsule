@@ -33,6 +33,12 @@ jobs:
       - name: Tests
         run: go test ./... -race
 
+      # The seed corpus runs above with every other test. This is a short
+      # exploratory run on top, so a change that lets a capsule.toml reach argv
+      # in a shape it should not is caught here rather than by a user.
+      - name: Fuzz the config reader
+        run: go test ./internal/runtime -run FuzzParseToArgv -fuzz FuzzParseToArgv -fuzztime 60s
+
       - name: Build
         run: go build -o capsule ./cmd/capsule
 
