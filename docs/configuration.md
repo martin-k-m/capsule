@@ -42,6 +42,8 @@ gomod = "/go/pkg/mod"
 | `packages` | array | none | Installed at start with the image's package manager |
 | `[env]` | table | none | Environment variables inside the capsule |
 | `[persist]` | table | none | Named volumes that survive teardown |
+| `[tasks]` | table | none | Named commands, run with `capsule run NAME` |
+| `[services.NAME]` | table | none | A sidecar container started beside the capsule |
 
 ### `capsule`
 
@@ -56,7 +58,7 @@ the file, so a config using a key or a syntax your capsule does not know yet
 tells you to upgrade instead of complaining about an unknown key:
 
 ```
-capsule: capsule.toml: needs capsule >=0.4, but this is capsule 0.2.0; upgrade from https://github.com/martin-k-m/capsule/releases
+capsule: capsule.toml: needs capsule >=2.0, but this is capsule 1.1.0; upgrade from https://github.com/martin-k-m/capsule/releases
 ```
 
 Only `>=` is accepted. A file states the oldest capsule that can read it, which
@@ -163,7 +165,7 @@ same network. Inside it, `db` and `cache` resolve as hostnames.
 |---|---|
 | `image` | required, same as the capsule's own |
 | `ready` | shell command run inside the service until it exits 0 |
-| `timeout` | how long to wait for `ready`, default 30s |
+| `timeout` | how long to wait for `ready`, default 60s |
 | `ports` | published to the host as `"host:container"` |
 | `env` | passed in as environment variables |
 
