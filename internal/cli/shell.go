@@ -38,11 +38,6 @@ func runShell(args []string) error {
 			len(names), c.Name, target)
 	}
 
-	// A TTY is requested only when capsule has one on both ends, the same rule
-	// `up`, `exec` and `run` follow. `shell` used to pass `-it` unconditionally,
-	// which made it the one command that could not be driven from a script or a
-	// CI step: the runtime refuses with "the input device is not a TTY", an
-	// error about the caller's terminal rather than about the capsule.
 	tty := isTerminal(os.Stdin) && isTerminal(os.Stdout)
 	if err := rt.Exec(shellCommandArgs(target, tty, c.Shell)...); err != nil {
 		return exitOrErr(err, runtime.ExitCode(err))
@@ -51,10 +46,8 @@ func runShell(args []string) error {
 }
 
 // shellCommandArgs builds the argv for opening a shell in a running capsule.
-//
-// Pure, like execCommandArgs, so the flags it produces can be asserted without
-// a runtime present. `-i` stays on whether or not there is a terminal, so a
-// heredoc piped into `capsule shell` still reaches the shell's stdin.
+// `-i` stays on without a terminal so a heredoc piped into `capsule shell`
+// still reaches the shell's stdin.
 func shellCommandArgs(target string, tty bool, shell string) []string {
 	args := []string{"exec", "-i"}
 	if tty {

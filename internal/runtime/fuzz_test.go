@@ -1,15 +1,15 @@
 package runtime
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/martin-k-m/capsule/internal/config"
 )
 
-// seeds are capsule.toml fragments the fuzzer starts from. They are chosen to
-// put the mutator near the parts of the document that reach argv: the image,
-// the mount paths, the ports, and the service subtables.
+// seeds put the mutator near the parts of a capsule.toml that reach argv: the
+// image, the mount paths, the ports, and the service subtables.
 var seeds = []string{
 	`image = "alpine"`,
 	"image = 'alpine'\nname = \"demo\"\nworkdir = \"/src\"\nshell = \"/bin/bash\"",
@@ -26,12 +26,9 @@ var seeds = []string{
 }
 
 // FuzzParseToArgv drives capsule.toml text through the config reader and, when
-// it parses, through every argv builder a `capsule up` uses.
-//
-// capsule.toml is not always written by the person running capsule: the README's
-// own framing is that you use capsule to run someone else's repo. That makes the
-// config an input, and these are the properties that have to hold for any input
-// the reader accepts, not just the ones a test author thought to write down.
+// it parses, through every argv builder a `capsule up` uses. capsule.toml is
+// untrusted input (docs/DECISIONS.md), so these properties have to hold for
+// every document the reader accepts, not just the ones a test author wrote down.
 func FuzzParseToArgv(f *testing.F) {
 	for _, s := range seeds {
 		f.Add(s)
@@ -53,13 +50,10 @@ func FuzzParseToArgv(f *testing.F) {
 		}
 
 		// Nothing a capsule.toml author writes may reach argv in a position the
-		// runtime reads as a flag. A runtime stops parsing its own options at the
-		// image name, so that is where this check ends too: everything after it
-		// is the container's command, where a leading dash is just a word.
-		// RunArgs is flags, then the image, then the entrypoint, so the image sits
-		// exactly one place before the entrypoint it appended. Computing the
-		// boundary beats searching for the image, which a shell of the same name
-		// would otherwise shadow.
+		// runtime reads as a flag. The runtime stops parsing its own options at
+		// the image name, so the check ends there too. The boundary is computed
+		// rather than searched for, since a shell of the same name would shadow
+		// the image.
 		image := len(args) - len(entrypoint(c, o.Cmd)) - 1
 		if image < 0 || args[image] != c.Image {
 			t.Fatalf("image %q is not where argv should hold it: %v", c.Image, args)
@@ -79,7 +73,7 @@ func FuzzParseToArgv(f *testing.F) {
 
 		// The same input has to produce the same command every time, or a
 		// capsule.toml stops describing one capsule.
-		if second := RunArgs(o); !equal(args, second) {
+		if second := RunArgs(o); !slices.Equal(args, second) {
 			t.Fatalf("RunArgs is not deterministic:\n%v\n%v", args, second)
 		}
 
@@ -91,9 +85,8 @@ func FuzzParseToArgv(f *testing.F) {
 			}
 		}
 
-		// A mount argument is split by the runtime on ":". A workdir or a persist
-		// target carrying one turns a bind mount into a mount with options the
-		// capsule.toml author chose, silently.
+		// The runtime splits a mount argument on ":", so a workdir or persist
+		// target carrying one silently adds mount options the config author chose.
 		for i := 0; i < len(args)-1; i++ {
 			if args[i] != "-v" {
 				continue
@@ -135,16 +128,4 @@ func mountColons(v string) int {
 
 func isDriveLetter(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
-}
-
-func equal(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
