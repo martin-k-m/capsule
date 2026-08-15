@@ -90,6 +90,11 @@ func TestParseErrors(t *testing.T) {
 		{"relative workdir", `image = "a"` + "\n" + `workdir = "src"`, "must be an absolute path"},
 		{"relative persist", "image = \"a\"\n[persist]\nv = \"rel\"", "must mount an absolute path"},
 		{"bad name", `image = "a"` + "\n" + `name = "-nope"`, "invalid name"},
+		// A colon does not extend a mount destination, it ends it. Accepting one
+		// let a capsule.toml mount the developer's own project read-only without
+		// saying so anywhere. Found by FuzzParseToArgv.
+		{"workdir carries mount options", `image = "a"` + "\n" + `workdir = "/src:ro"`, `must not contain ":"`},
+		{"persist target carries mount options", "image = \"a\"\n[persist]\ncache = \"/data:ro\"", `must not contain ":"`},
 		{"image in flag position", `image = "-v/etc:/etc"`, `must not start with "-"`},
 		{"requirement is not a range", `capsule = "0.2"` + "\n" + `image = "a"`, `must be written ">=MAJOR.MINOR"`},
 		{"requirement is not a version", `capsule = ">=latest"` + "\n" + `image = "a"`, "is not a version"},

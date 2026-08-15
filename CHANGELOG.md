@@ -4,6 +4,26 @@ All notable changes to capsule are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A `workdir` or `[persist]` target containing `:` is now rejected.** Both are
+  pasted into a `-v` argument, which the container runtime splits on that
+  character, so `workdir = "/src:ro"` did not name a directory: it mounted the
+  developer's own project read-only, and `capsule up` said nothing about it. The
+  same held for a persist target. Found by `FuzzParseToArgv`.
+
+### Added
+
+- **`FuzzParseToArgv`**, a fuzz target driving `capsule.toml` text through the
+  config reader and into every argv builder `capsule up` uses. It asserts the
+  properties that have to hold for any accepted document rather than for the
+  ones a test author thought of: `--rm` is always emitted, nothing config-derived
+  lands before the image where the runtime would read it as a flag, argv is
+  deterministic, and a mount argument carries only its own separator. CI runs the
+  seed corpus with every test and fuzzes for a further 60s.
+
 ## [1.1.0] - 2026-08-06
 
 ### Added

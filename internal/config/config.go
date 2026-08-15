@@ -472,6 +472,13 @@ func (c *Capsule) validate() error {
 	if !strings.HasPrefix(c.Workdir, "/") {
 		return fmt.Errorf("workdir %q must be an absolute path inside the container", c.Workdir)
 	}
+	// workdir is the destination of the project's bind mount, and a runtime
+	// splits a -v argument on ":". A colon here would not be read as part of the
+	// path: it would end it and turn the rest into mount options, so a workdir of
+	// "/src:ro" quietly mounts the developer's own project read-only.
+	if err := checkNoColon("workdir", c.Workdir); err != nil {
+		return err
+	}
 	if strings.TrimSpace(c.Shell) == "" {
 		return fmt.Errorf("`shell` cannot be empty")
 	}
@@ -486,6 +493,11 @@ func (c *Capsule) validate() error {
 		}
 		if target := c.Persist[name]; !strings.HasPrefix(target, "/") {
 			return fmt.Errorf("persist.%s must mount an absolute path, got %q", name, target)
+		}
+		// The same -v splitting as workdir, one field further along: a target of
+		// "/data:ro" makes the volume read-only without saying so.
+		if err := checkNoColon("persist."+name, c.Persist[name]); err != nil {
+			return err
 		}
 	}
 	for _, k := range sortedKeys(c.Env) {
@@ -533,6 +545,17 @@ func (s *Service) validate() error {
 		if k == "" || strings.ContainsAny(k, "= \t") {
 			return fmt.Errorf("%s.%s: invalid env key %q", ServicesSection, s.Name, k)
 		}
+	}
+	return nil
+}
+
+// checkNoColon rejects a container path that would change the meaning of the
+// -v argument it is pasted into. Everything capsule mounts is a Linux path
+// inside the container, where a colon is legal in a filename but unusable as
+// one: the runtime has already split the argument by the time the path is read.
+func checkNoColon(field, path string) error {
+	if strings.Contains(path, ":") {
+		return fmt.Errorf("%s %q must not contain \":\": it is used as a mount destination, where the runtime reads anything after a colon as mount options rather than as part of the path", field, path)
 	}
 	return nil
 }
