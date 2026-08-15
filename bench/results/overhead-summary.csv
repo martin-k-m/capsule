@@ -1,0 +1,5 @@
+﻿"case","n","min_ms","p50_ms","p90_ms","p99_ms","max_ms"
+"capsule up -- true","30","442","539.3","644.8","702.7","702.7"
+"docker run, capsule argv, by hand","30","431.2","528","598.3","682","682"
+"docker run, minimal equivalent","30","469.2","531.2","591.9","804.7","804.7"
+"capsule up --dry-run (no runtime)","30","10.5","12.3","25.4","34.2","34.2"
