@@ -28,12 +28,18 @@ neither is on `PATH`.
 
 ## No state file
 
-capsule stamps two labels on every container it starts:
+capsule stamps labels on every container and network it creates:
 
 ```
-me.blinkdev.capsule       = 1
-me.blinkdev.capsule.name  = <name>
+me.blinkdev.capsule          = 1        everything capsule made
+me.blinkdev.capsule.name     = <name>   which capsule it belongs to
+me.blinkdev.capsule.role     = capsule | service
+me.blinkdev.capsule.service  = <name>   on a sidecar only
 ```
+
+`role` exists because a runtime offers no way to filter on the absence of a
+label, and `capsule shell` has to attach to your capsule rather than to the
+database sitting next to it.
 
 and finds its own containers by querying those labels. It writes no state file,
 no lockfile, no `~/.capsule`.
