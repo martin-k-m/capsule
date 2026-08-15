@@ -424,6 +424,35 @@ func TestLiteralStringsAreNotUnescaped(t *testing.T) {
 	}
 }
 
+// A capsule.toml written by a Windows editor, or by PowerShell's own
+// `Set-Content -Encoding utf8`, begins with a UTF-8 BOM. It is a byte-order
+// mark rather than content, but it lands on the first key of the file, so
+// before it was stripped a perfectly correct config failed with
+// `unknown key "\uFEFFimage"` (with the mark shown escaped): an error naming a key that looks right on
+// screen and cannot be edited into a key that works.
+func TestALeadingByteOrderMarkIsNotPartOfTheFirstKey(t *testing.T) {
+	c, err := Parse("\uFEFFimage = \"alpine\"\nname = \"demo\"", "x")
+	if err != nil {
+		t.Fatalf("Parse rejected a config whose only oddity is a BOM: %v", err)
+	}
+	if c.Image != "alpine" {
+		t.Errorf("image = %q, want %q", c.Image, "alpine")
+	}
+}
+
+// The BOM is only a mark at the very start of a document. Anywhere else the
+// same rune is a zero-width no-break space, which is a character in a value and
+// must survive rather than be quietly trimmed out of one.
+func TestAByteOrderMarkIsOnlyStrippedFromTheStart(t *testing.T) {
+	c, err := Parse("image = \"alpine\"\n[env]\nA = \"x\uFEFFy\"", "x")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if c.Env["A"] != "x\uFEFFy" {
+		t.Errorf("value was altered: %q", c.Env["A"])
+	}
+}
+
 func TestServiceNamesAndHasService(t *testing.T) {
 	c, err := Parse(`
 image = "alpine"
