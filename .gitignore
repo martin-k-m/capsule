@@ -10,3 +10,8 @@
 
 # JetBrains
 .idea/
+
+# The capsule the benchmarks build to measure. The CSVs beside it are the
+# evidence and are committed; the binary is rebuilt on every run.
+/bench/results/capsule.exe
+/bench/results/run.log
