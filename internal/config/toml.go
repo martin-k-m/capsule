@@ -32,6 +32,11 @@ func parseTOML(src string) (map[string]table, error) {
 	doc := map[string]table{"": {}}
 	current := ""
 
+	// Windows editors write a UTF-8 BOM, which otherwise lands on the first key
+	// and makes `image` unrecognisable. Only ever valid at the very start, so it
+	// is stripped here rather than in each caller.
+	src = strings.TrimPrefix(src, "\uFEFF")
+
 	lines := strings.Split(strings.ReplaceAll(src, "\r\n", "\n"), "\n")
 	for i := 0; i < len(lines); i++ {
 		lineNo := i + 1

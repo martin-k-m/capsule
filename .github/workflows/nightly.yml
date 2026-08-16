@@ -1,0 +1,108 @@
+name: Nightly
+
+# The checks that are too slow to sit in front of a pull request. CI stays fast
+# because these run here instead: a fuzz run long enough to find something the
+# 60-second run in CI would not, and the isolation questions that need a real
+# container and a Linux host to answer.
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    name: extended fuzz
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: true
+
+      # Fifteen minutes rather than CI's sixty seconds. FuzzParseToArgv found
+      # the mount-destination colon bug; the point of a longer run is that the
+      # next one has room to find the next.
+      - name: Fuzz capsule.toml into argv
+        run: go test ./internal/runtime -run FuzzParseToArgv -fuzz FuzzParseToArgv -fuzztime 15m
+
+      # A crash writes its input under testdata. Publishing it means the failing
+      # document is in hand rather than only in a log.
+      - name: Upload any crashing input
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-corpus
+          path: internal/runtime/testdata/fuzz/
+
+  isolation:
+    name: isolation on a Linux host
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: true
+
+      - name: Build
+        run: go build -o capsule ./cmd/capsule
+
+      - name: Set up a project
+        run: |
+          mkdir -p /tmp/probe
+          cat > /tmp/probe/capsule.toml <<'EOF'
+          capsule = ">=0.2"
+          name    = "probe"
+          image   = "alpine:3.20"
+          shell   = "/bin/sh"
+          workdir = "/workspace"
+          EOF
+
+      # docs/SANDBOXING.md was measured on Windows, where the project reaches
+      # the container over 9p and all ownership maps to the host user. That
+      # hides the thing a Linux user actually sees, so it is asserted here, on a
+      # Linux host with a real bind mount, rather than described.
+      - name: A capsule runs as root and leaves root-owned files behind
+        working-directory: /tmp/probe
+        run: |
+          $GITHUB_WORKSPACE/capsule up -- sh -c 'id; touch /workspace/made-inside'
+          ls -ln /tmp/probe/made-inside
+          owner=$(stat -c '%u' /tmp/probe/made-inside)
+          echo "made-inside is owned by uid $owner"
+          if [ "$owner" != "0" ]; then
+            echo "NOTE: a file written inside a capsule came back owned by uid $owner, not root."
+            echo "SANDBOXING.md says to expect root on Linux. If this is stable, fix the doc."
+            exit 1
+          fi
+
+      - name: The host environment does not reach a capsule
+        working-directory: /tmp/probe
+        env:
+          CAPSULE_PROBE_SECRET: host-secret-do-not-leak
+        run: |
+          n=$($GITHUB_WORKSPACE/capsule up -- sh -c 'env | grep -c CAPSULE_PROBE_SECRET || true')
+          echo "occurrences inside: $n"
+          if [ "$n" != "0" ]; then
+            echo "the host environment leaked into a capsule"
+            exit 1
+          fi
+
+      - name: The Docker socket is not passed in
+        working-directory: /tmp/probe
+        run: |
+          out=$($GITHUB_WORKSPACE/capsule up -- sh -c 'test -S /var/run/docker.sock && echo PRESENT || echo absent')
+          echo "$out"
+          test "$out" = "absent"
+
+      - name: Nothing is left behind
+        run: |
+          left=$(docker ps -aq --filter label=me.blinkdev.capsule=1)
+          if [ -n "$left" ]; then
+            echo "capsule left containers behind:"
+            docker ps -a --filter label=me.blinkdev.capsule=1
+            exit 1
+          fi
+          echo "no capsule containers remain"

@@ -118,8 +118,12 @@ $ capsule up
 They share a private network named after the capsule, so `db` is just a
 hostname. `ready` is a command run inside the service until it exits 0, because
 a container that is running is not a database that is accepting connections.
-Everything goes away together, including when a service never comes up or you
-press Ctrl-C.
+Everything goes away together, including when a service never comes up. Ctrl-C
+is handled too: a capsule that declares services installs a signal handler that
+tears the whole stack down and exits 130, because a service is detached and
+would otherwise outlive the shell that started it. A capsule with no services
+installs no handler and does not need one, since the only thing it started is
+the container the terminal signals directly and `--rm` removes.
 
 See [docs/configuration.md](docs/configuration.md#servicesname) for the rest.
 
@@ -131,7 +135,7 @@ See [docs/configuration.md](docs/configuration.md#servicesname) for the rest.
 | `capsule init` | Write a starter `capsule.toml`, detecting Go, Rust, Node or Python |
 | `capsule up` | Start an ephemeral capsule and enter it |
 | `capsule up -- <cmd>` | Run one command in a fresh capsule and tear it down |
-| `capsule up --dry-run` | Print the exact runtime command instead of running it |
+| `capsule up --dry-run` | Print the exact runtime commands instead of running them |
 | `capsule shell` | Open another shell in a capsule that is already running |
 | `capsule exec <cmd>` | Run one command in a running capsule and exit with its status |
 | `capsule run <task>` | Run a task declared in `[tasks]` |
@@ -166,8 +170,20 @@ capsule up -- go test ./...
 capsule makes one promise, so it is worth being exact about it.
 
 **Goes away on exit:** the container, its filesystem, anything installed into it,
-anonymous volumes, and processes it started. The container is run with `--rm`;
-there is no cleanup step that can be skipped or fail.
+anonymous volumes, and processes it started. The container is run with `--rm`,
+so its removal is the runtime's job and happens however the process ended. That
+part has no cleanup step to skip.
+
+A capsule with `[services]` also creates service containers and a network. The
+containers carry `--rm` like everything else, but the network does not: removing
+it is a step capsule runs, and a step can fail. It is deliberately the last one,
+because a runtime refuses to remove a network while something is still attached,
+so a failure there is how capsule finds out that a container outlived its
+removal. When that happens capsule says so and names the fix:
+
+```
+capsule: something capsule started is still running, `capsule down` will clear it
+```
 
 **Survives:** your project directory, meaning the directory holding
 `capsule.toml`, because it is a bind mount from the host and never a copy, and
@@ -203,8 +219,12 @@ binary.
 | :-- | :-- |
 | [docs/getting-started.md](docs/getting-started.md) | Install, first capsule, running one command |
 | [docs/configuration.md](docs/configuration.md) | Every `capsule.toml` key |
-| [docs/commands.md](docs/commands.md) | Every command and flag |
+| [docs/commands.md](docs/commands.md) | The commands in detail. `run` and `cp` are covered by the table above only |
 | [docs/architecture.md](docs/architecture.md) | How it works, and why it is built this way |
+| [docs/DECISIONS.md](docs/DECISIONS.md) | The choices that had a real alternative, and what it would have cost |
+| [docs/BENCHMARKS.md](docs/BENCHMARKS.md) | What a capsule costs, measured, with the scripts that produced the numbers |
+| [docs/SANDBOXING.md](docs/SANDBOXING.md) | What crosses a capsule's boundary, measured from inside one |
+| [docs/BUGS.md](docs/BUGS.md) | Bugs that got through, how each was caught, and what stops it recurring |
 
 ## Development
 

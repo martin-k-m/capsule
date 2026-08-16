@@ -472,6 +472,9 @@ func (c *Capsule) validate() error {
 	if !strings.HasPrefix(c.Workdir, "/") {
 		return fmt.Errorf("workdir %q must be an absolute path inside the container", c.Workdir)
 	}
+	if err := checkNoColon("workdir", c.Workdir); err != nil {
+		return err
+	}
 	if strings.TrimSpace(c.Shell) == "" {
 		return fmt.Errorf("`shell` cannot be empty")
 	}
@@ -486,6 +489,9 @@ func (c *Capsule) validate() error {
 		}
 		if target := c.Persist[name]; !strings.HasPrefix(target, "/") {
 			return fmt.Errorf("persist.%s must mount an absolute path, got %q", name, target)
+		}
+		if err := checkNoColon("persist."+name, c.Persist[name]); err != nil {
+			return err
 		}
 	}
 	for _, k := range sortedKeys(c.Env) {
@@ -533,6 +539,16 @@ func (s *Service) validate() error {
 		if k == "" || strings.ContainsAny(k, "= \t") {
 			return fmt.Errorf("%s.%s: invalid env key %q", ServicesSection, s.Name, k)
 		}
+	}
+	return nil
+}
+
+// checkNoColon rejects a mount destination that would change the meaning of the
+// -v argument it is pasted into: the runtime splits on ":", so "/src:ro" ends
+// the path and turns the rest into mount options. See docs/DECISIONS.md.
+func checkNoColon(field, path string) error {
+	if strings.Contains(path, ":") {
+		return fmt.Errorf("%s %q must not contain \":\": it is used as a mount destination, where the runtime reads anything after a colon as mount options rather than as part of the path", field, path)
 	}
 	return nil
 }

@@ -4,6 +4,61 @@ All notable changes to capsule are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A `workdir` or `[persist]` target containing `:` is now rejected.** Both are
+  pasted into a `-v` argument, which the container runtime splits on that
+  character, so `workdir = "/src:ro"` did not name a directory: it mounted the
+  developer's own project read-only, and `capsule up` said nothing about it. The
+  same held for a persist target. Found by `FuzzParseToArgv`.
+
+- **A `capsule.toml` beginning with a UTF-8 byte-order mark is now read.** The
+  mark stuck to the first key in the file, so a correct config was rejected with
+  `unknown key "image"` naming a key spelled correctly, the mark being invisible.
+  Windows editors and PowerShell's `Set-Content -Encoding utf8` both write one.
+
+- **`capsule shell` no longer demands a terminal.** It passed `-it`
+  unconditionally while `up`, `exec` and `run` all request a TTY only when
+  capsule has one, so it was the single command that could not run from a script
+  or a CI step. It now follows the same rule, and keeps `-i` either way so
+  `capsule shell < script.sh` still works.
+
+- **Documentation corrected against the code.** The claim that no cleanup step
+  can be skipped or fail was true of a capsule's container and false of a capsule
+  with `[services]`, whose network is removed by a step that can fail. The
+  service `timeout` default is 60s, not the 30s documented. `configuration.md`
+  omitted `[tasks]` and `[services.NAME]` while claiming to list every key, and
+  `architecture.md` listed two labels where four are stamped.
+
+### Added
+
+- **`docs/BENCHMARKS.md`**, with the scripts in `bench/` that regenerate every
+  number in it and the raw per-run samples. capsule adds 11 ms over the
+  `docker run` it drives; its own work is 21 ms; a warm `up` does not depend on
+  image size.
+
+- **`docs/SANDBOXING.md`**: what crosses a capsule's boundary, determined by
+  running twenty-five checks inside real capsules. The host environment does not
+  leak in and the Docker socket is not passed; a capsule does run as root, drops
+  no capabilities, and reaches both the internet and services on the host.
+
+- **`docs/BUGS.md` and `docs/DECISIONS.md`**: the defects that got through and
+  what caught each one, and the choices that had a real alternative.
+
+- **A nightly workflow** running a 15-minute fuzz and asserting the isolation
+  properties on a Linux host, where a real bind mount shows the file ownership
+  that Docker Desktop's 9p mount hides.
+
+- **`FuzzParseToArgv`**, a fuzz target driving `capsule.toml` text through the
+  config reader and into every argv builder `capsule up` uses. It asserts the
+  properties that have to hold for any accepted document rather than for the
+  ones a test author thought of: `--rm` is always emitted, nothing config-derived
+  lands before the image where the runtime would read it as a flag, argv is
+  deterministic, and a mount argument carries only its own separator. CI runs the
+  seed corpus with every test and fuzzes for a further 60s.
+
 ## [1.1.0] - 2026-08-06
 
 ### Added
