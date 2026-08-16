@@ -38,8 +38,20 @@ func runShell(args []string) error {
 			len(names), c.Name, target)
 	}
 
-	if err := rt.Exec("exec", "-it", target, c.Shell); err != nil {
+	tty := isTerminal(os.Stdin) && isTerminal(os.Stdout)
+	if err := rt.Exec(shellCommandArgs(target, tty, c.Shell)...); err != nil {
 		return exitOrErr(err, runtime.ExitCode(err))
 	}
 	return nil
+}
+
+// shellCommandArgs builds the argv for opening a shell in a running capsule.
+// `-i` stays on without a terminal so a heredoc piped into `capsule shell`
+// still reaches the shell's stdin.
+func shellCommandArgs(target string, tty bool, shell string) []string {
+	args := []string{"exec", "-i"}
+	if tty {
+		args = append(args, "-t")
+	}
+	return append(args, target, shell)
 }

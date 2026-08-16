@@ -70,3 +70,30 @@ func TestDescribeServices(t *testing.T) {
 		t.Errorf("describeServices = %q, want it to introduce the list", got)
 	}
 }
+
+func TestShellCommandArgsGatesTheTTY(t *testing.T) {
+	withTTY := shellCommandArgs("capsule-demo-abcd1234", true, "/bin/sh")
+	want := "exec -i -t capsule-demo-abcd1234 /bin/sh"
+	if strings.Join(withTTY, " ") != want {
+		t.Errorf("with a terminal = %v, want %q", withTTY, want)
+	}
+
+	withoutTTY := shellCommandArgs("capsule-demo-abcd1234", false, "/bin/sh")
+	want = "exec -i capsule-demo-abcd1234 /bin/sh"
+	if strings.Join(withoutTTY, " ") != want {
+		t.Errorf("without a terminal = %v, want %q", withoutTTY, want)
+	}
+	if strings.Contains(strings.Join(withoutTTY, " "), "-t") {
+		t.Errorf("a shell opened without a terminal must not request one: %v", withoutTTY)
+	}
+}
+
+// Stdin stays open either way, so `capsule shell < script.sh` reaches the shell.
+func TestShellCommandArgsAlwaysKeepsStdinOpen(t *testing.T) {
+	for _, tty := range []bool{true, false} {
+		args := shellCommandArgs("demo", tty, "/bin/sh")
+		if args[0] != "exec" || args[1] != "-i" {
+			t.Errorf("tty=%v: shell args must start with `exec -i`, got %v", tty, args[:2])
+		}
+	}
+}

@@ -90,6 +90,10 @@ func TestParseErrors(t *testing.T) {
 		{"relative workdir", `image = "a"` + "\n" + `workdir = "src"`, "must be an absolute path"},
 		{"relative persist", "image = \"a\"\n[persist]\nv = \"rel\"", "must mount an absolute path"},
 		{"bad name", `image = "a"` + "\n" + `name = "-nope"`, "invalid name"},
+		// A colon ends a mount destination rather than extending it, so accepting
+		// one let a capsule.toml mount the project read-only. Found by FuzzParseToArgv.
+		{"workdir carries mount options", `image = "a"` + "\n" + `workdir = "/src:ro"`, `must not contain ":"`},
+		{"persist target carries mount options", "image = \"a\"\n[persist]\ncache = \"/data:ro\"", `must not contain ":"`},
 		{"image in flag position", `image = "-v/etc:/etc"`, `must not start with "-"`},
 		{"requirement is not a range", `capsule = "0.2"` + "\n" + `image = "a"`, `must be written ">=MAJOR.MINOR"`},
 		{"requirement is not a version", `capsule = ">=latest"` + "\n" + `image = "a"`, "is not a version"},
@@ -416,6 +420,30 @@ func TestLiteralStringsAreNotUnescaped(t *testing.T) {
 	}
 	if c.Env["P"] != `C:\path\n` {
 		t.Errorf("literal string was altered: %q", c.Env["P"])
+	}
+}
+
+// A BOM-prefixed config used to fail with `unknown key "\uFEFFimage"`, naming a
+// key that looks correct on screen and cannot be edited into one that works.
+func TestALeadingByteOrderMarkIsNotPartOfTheFirstKey(t *testing.T) {
+	c, err := Parse("\uFEFFimage = \"alpine\"\nname = \"demo\"", "x")
+	if err != nil {
+		t.Fatalf("Parse rejected a config whose only oddity is a BOM: %v", err)
+	}
+	if c.Image != "alpine" {
+		t.Errorf("image = %q, want %q", c.Image, "alpine")
+	}
+}
+
+// Anywhere but the start, the same rune is a zero-width no-break space: content
+// of a value, and it must survive rather than be trimmed out of one.
+func TestAByteOrderMarkIsOnlyStrippedFromTheStart(t *testing.T) {
+	c, err := Parse("image = \"alpine\"\n[env]\nA = \"x\uFEFFy\"", "x")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if c.Env["A"] != "x\uFEFFy" {
+		t.Errorf("value was altered: %q", c.Env["A"])
 	}
 }
 
