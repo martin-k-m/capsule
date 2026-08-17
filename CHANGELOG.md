@@ -34,6 +34,20 @@ All notable changes to capsule are documented here. The format follows
 
 ### Added
 
+- **Tests for the teardown and signal paths of a `[services]` capsule.** They
+  drive a stack against a fake runtime, so a cleanup step can be made to fail on
+  demand: a service that will not be removed does not stop capsule removing the
+  others or the network, a network that will not go is reported and names
+  `capsule down`, and a second teardown is inert. `trap` is exercised in a real
+  subprocess on Linux, which pins the exit statuses (130 and 143) and the fact
+  that a second Ctrl-C does not cut a teardown short. `internal/cli` coverage
+  goes from 26.4% to 38.1%.
+
+- **`bench/bench-services.ps1`** and section 4 of `docs/BENCHMARKS.md`, which
+  close the `[services]` gap that document listed as unmeasured. One sidecar
+  costs 1,857 ms at the median on that machine, and it is the six extra runtime
+  invocations rather than the service.
+
 - **`docs/BENCHMARKS.md`**, with the scripts in `bench/` that regenerate every
   number in it and the raw per-run samples. capsule adds 11 ms over the
   `docker run` it drives; its own work is 21 ms; a warm `up` does not depend on
