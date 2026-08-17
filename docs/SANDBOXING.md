@@ -152,7 +152,20 @@ images that is root. Two consequences:
 
    That result is a property of Docker Desktop's filesystem, not of capsule, and
    it should not be read as evidence that capsule handles uid mapping. It does
-   not. On native Linux, expect root-owned files.
+   not.
+
+   The Linux half is no longer a prediction. The nightly workflow asserts it and
+   had never executed, so on 2026-08-17 the same probe was run by hand inside a
+   `docker:27-dind` container, which is a Linux host with a real bind mount and
+   its own daemon:
+
+   ```
+   uid=0(root) gid=0(root)
+   -rw-r--r--  1 0  0  0  /tmp/probe/made-inside
+   ```
+
+   Root-owned, as stated. The other three probes in that workflow, the host
+   environment, the docker socket and the leftover check, passed there too.
 
 **Capabilities are not dropped.** The measured bounding set is
 `00000000a80425fb`, which is exactly the runtime's default fourteen: `CHOWN`,
