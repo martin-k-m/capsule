@@ -117,3 +117,22 @@ exactly was measured rather than asserted: see
 [SANDBOXING.md](SANDBOXING.md) for what crosses the boundary and what does not.
 The README says a capsule is "not a sandbox for untrusted code", and that
 sentence is load-bearing.
+
+## The signal handler is tested in a real process, not around a seam
+
+`trap` calls `os.Exit` from a goroutine, which is the right thing for it to do
+and untestable in the usual way. The alternative was an injectable exit
+function, or an interface in front of `Runtime` so the whole thing could be
+driven in memory.
+
+Both lost to the same objection: they test a rearranged version of the code,
+and the arrangement is what signal handling gets wrong. What is here instead
+re-executes the test binary twice. Once as a capsule that has installed a trap,
+which is then really signalled and whose real exit status is read; once as the
+container runtime itself, which records the commands it was asked to run and
+fails the exact one a test names. Nothing in `services.go` changed to make it
+testable.
+
+The cost is that the two signal tests skip on Windows, where there is no POSIX
+signal to send to another process. That is a real hole on the machine capsule is
+developed on, and the reason CI is the platform that matters for those two.
