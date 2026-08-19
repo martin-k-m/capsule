@@ -12,6 +12,7 @@ Linux host, are recorded in the benchmark document rather than assumed away.
 | `bench-up.ps1` | `capsule up` cold against warm, for two image sizes |
 | `bench-breakdown.ps1` | Where a `capsule up` spends its time, phase by phase |
 | `bench-overhead.ps1` | What capsule costs on top of the `docker run` it drives |
+| `bench-services.ps1` | What a `[services]` sidecar adds to a `capsule up` |
 | `probe-isolation.ps1` | What crosses a capsule's boundary, asked from inside one |
 | `lib.ps1` | Timing, percentiles, fixtures. Dot-sourced by the rest |
 
@@ -19,6 +20,8 @@ Linux host, are recorded in the benchmark document rather than assumed away.
 powershell -ExecutionPolicy Bypass -File bench\bench-up.ps1
 powershell -ExecutionPolicy Bypass -File bench\bench-breakdown.ps1
 powershell -ExecutionPolicy Bypass -File bench\bench-overhead.ps1
+powershell -ExecutionPolicy Bypass -File benchench-services.ps1
+powershell -ExecutionPolicy Bypass -File bench\bench-services.ps1
 powershell -ExecutionPolicy Bypass -File bench\probe-isolation.ps1
 ```
 

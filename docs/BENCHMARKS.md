@@ -214,12 +214,60 @@ capsule and roughly 527 ms of container runtime.
 
 ---
 
+## 4. What `[services]` costs
+
+Section 2 predicted that a capsule with sidecars would be dominated by the
+number of runtime invocations it makes, and said the prediction was not a
+number. It is now.
+
+Measured 2026-08-17 on the machine above, Docker 29.6.2, from branch
+`test/cli-teardown-signals`. The rest of this page is from 2026-08-15, so these
+four cases compare to each other and to nothing else on it.
+
+`bench\bench-services.ps1`, capsule on `alpine:3.20`, services on `redis:7-alpine`,
+all images warm, all four cases in one interleaved session
+
+| Case | n | min | **p50** | p90 | **p99 (= max)** |
+| :-- | --: | --: | --: | --: | --: |
+| no services | 10 | 498 ms | **578 ms** | 683 ms | 825 ms |
+| 1 service, no `ready` check | 10 | 1,996 ms | **2,435 ms** | 2,718 ms | 3,171 ms |
+| 1 service, with `ready` check | 10 | 2,496 ms | **2,696 ms** | 2,897 ms | 3,012 ms |
+| 2 services, no `ready` check | 10 | 2,691 ms | **3,695 ms** | 4,934 ms | 5,033 ms |
+
+### Reading it
+
+**One service costs 1,857 ms, and it is invocation count, not the service.**
+A capsule with no services issues one runtime command. One service turns that
+into seven: network create, service run, one state inspect, the capsule's own
+run, two removals and a network remove. Six extra invocations for 1,857 ms is
+310 ms each, against the 226 ms CLI floor measured in section 2 plus whatever
+each command actually does. The prediction holds.
+
+**A second service costs 1,260 ms for three more invocations**, 420 ms each.
+More than the first service's per-call figure, and the p90 spread of that case
+is the widest on the page, so this is the case where the machine's own load
+shows through most. The shape is right; the exact figure is the softest number
+here.
+
+**A `ready` check costs one probe, not a poll cycle.** 2,696 ms against
+2,435 ms is 261 ms, one more `docker exec`. `readyPoll` is 500 ms, and a redis
+that answers on the first probe never waits it out. A service that is slower
+than its first probe pays 500 ms of granularity per poll on top, which this
+table does not measure and no fast service pays.
+
+**The floor for a services capsule on this platform is about two seconds**, and
+almost none of it is capsule. That is the price of a container runtime CLI being
+asked seven questions instead of one.
+
+---
+
 ## Summary
 
 | Question | Answer, on this machine |
 | :-- | :-- |
 | What does capsule add over `docker run`? | 11 ms, about 2% |
 | What does capsule's own logic cost? | 12 to 21 ms |
+| What does one `[services]` sidecar add? | 1,857 ms, six extra runtime invocations |
 | What does a warm `capsule up` cost? | 0.5 to 1.0 s, depending on machine load |
 | What does a cold one cost? | 6 s for a 3.6 MB image, 14 s for a 64 MB one |
 | Does warm start depend on image size? | No |
@@ -238,10 +286,12 @@ Stated so the gaps are not mistaken for zeros.
   lower on Linux, and the ratios in section 2 would shift accordingly. Nobody
   should quote these absolute numbers as capsule's performance on a Linux host.
 - **Podman.** capsule supports it and it was not benchmarked. Podman has no
-  long-running daemon, so its per-invocation cost has a different shape entirely.
-- **`[services]`.** A capsule with sidecars issues a network create, a run per
-  service, a readiness poll per service and a teardown per service. Section 2
-  predicts that will be dominated by the invocation count, but it was not
-  measured and that prediction is not a number.
+  long-running daemon, so its per-invocation cost has a different shape
+  entirely. It is not installed on the machine described above, and measuring
+  it anywhere else would break the rule that every number here comes from one
+  environment.
+- **A service slower than its first `ready` probe.** Section 4 measures a redis
+  that answers immediately. The 500 ms poll granularity a slow service pays is
+  visible in the code and not in these numbers.
 - **Anything under sustained load.** No case here runs concurrent capsules or
   competes for I/O beyond whatever the machine happened to be doing.
