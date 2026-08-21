@@ -108,26 +108,72 @@ now passes on both platforms rather than one, and CI runs on Linux.
 
 ---
 
-## `capsule exec` documented a `--` it never actually emitted
+## `capsule exec` fixed a misparse that did not exist and broke every exec doing it
 
-**Symptom.** `capsule exec -- --version` did not reach the program. The runtime's
-own `exec` read `--version` as a flag to itself.
+Two bugs, and the second one is the interesting one, because I introduced it
+while fixing the first.
 
-**Root cause.** The behaviour was documented and implemented in the argument
-parsing, so `capsule exec` correctly stopped reading its own flags at `--`. But
-the argv it then built for the runtime was `exec -it <target> <command...>` with
-no separator, so the guarantee stopped at capsule's boundary and the runtime made
-its own decision about the leading dash.
+**Symptom, first round.** `capsule exec -- --version` did not reach the program.
+`capsule exec` stopped reading its own flags at `--` correctly, but the argv it
+then built for the runtime was `exec -it <target> <command...>` with no
+separator, so I assumed the runtime would read the leading dash as a flag to its
+own `exec`. [`0966e9a`](https://github.com/martin-k-m/capsule/commit/0966e9a)
+pulled the argv into a pure `execCommandArgs` and emitted a `--` after the
+container name.
 
-The general shape of this is a bug I would look for again: a promise that is kept
-by the layer that documents it and dropped by the layer below.
+**Symptom, second round.** Every `capsule exec` fails:
 
-**Fix.** [`0966e9a`](https://github.com/martin-k-m/capsule/commit/0966e9a) pulls
-the argv into a pure `execCommandArgs` helper and emits the `--`.
+```
+$ capsule exec echo hello
+OCI runtime exec failed: exec failed: unable to start container process: exec: "--": executable file not found in $PATH
+```
 
-**Regression test.** The `command starting with a dash` case in
-`TestExecCommandArgs`. Making the argv a pure function is most of the value here:
-before that commit there was nothing to assert on without a running container.
+Not the dash case. All of them. `capsule exec go test ./...`, the thing the
+command was written for, has not worked since the fix landed.
+
+**Root cause.** `docker exec` stops parsing its own flags at the container name.
+Everything after it is the command, unconditionally. So the `--` was not a
+separator; it was the first positional after the container, which is the program
+to run. Docker duly tried to exec a binary called `--`.
+
+The same rule means the original misparse was never real. A command starting
+with a dash already reached the container untouched:
+
+```
+$ docker exec -i C --version
+OCI runtime exec failed: ... exec: "--version": executable file not found in $PATH
+```
+
+That is docker passing `--version` through to the container as the program, which
+is the desired behaviour. I fixed a bug I had reasoned my way into rather than
+reproduced, and the fix broke the command.
+
+**How it was caught.** By running it. `capsule exec` had unit tests, and they
+passed, because they asserted the argv against my belief about docker rather than
+against docker. `TestExecCommandArgs` contained a case named `command starting
+with a dash` whose expected value was the broken argv. A test written from the
+same wrong model as the code cannot fail.
+
+The e2e suite existed and drove a real runtime, and its own doc comment says
+argv assertions "cannot tell whether the argv capsule builds means what capsule
+thinks it means". It covered `up`. It did not cover `exec`. The gap between the
+principle and its coverage is where this lived for two releases.
+
+**Fix.** [`9c7b5c8`](https://github.com/martin-k-m/capsule/commit/9c7b5c8) drops
+the `--` and states the rule in the doc comment, so the next reader who thinks
+the separator looks like the safe thing to add finds out why it is not.
+
+**Regression test.** `TestExecRunsACommandInARunningCapsule` in
+[`internal/e2e/e2e_test.go`](../internal/e2e/e2e_test.go), which starts a real
+capsule and runs `capsule exec` in it, checking output, exit code passthrough and
+the leading-dash case. It fails with the exact error above when the `--` is put
+back. `TestExecCommandArgsHasNoDashDashSeparator` in
+`internal/cli/exec_test.go` keeps the argv from regrowing it.
+
+**What I take from it.** The rule I had already written for the e2e package was
+right and I did not apply it widely enough. Any argv that is a guess about
+another program's parser needs one test that asks that program. The unit test is
+for the shape; it cannot be for the meaning.
 
 ---
 
@@ -227,5 +273,7 @@ with `path/filepath` or is explicitly about one platform and says so.
 I have not had a production incident with this tool, and there is no bug in this
 list that a user reported, because as far as I know there are no users yet. Three
 of the six entries were found by machinery I set up deliberately (a fuzzer, a
-cross-platform CI matrix, an audit of the docs against the code) and one was
-found by tripping over it. That ratio is the argument for the machinery.
+cross-platform CI matrix, an audit of the docs against the code) and two were
+found by running the thing. The `capsule exec` entry is the one I would keep if
+I could keep only one: it is a bug I reasoned into existence, shipped a fix for,
+and did not notice for two releases because every test I had agreed with me.

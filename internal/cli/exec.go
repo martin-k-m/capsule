@@ -64,16 +64,21 @@ func runExec(args []string) error {
 // execCommandArgs builds the argv for running one command in a container.
 //
 // It is a pure function so the flags a command turns into can be checked
-// without a runtime present. The `--` before the command is what keeps a
-// command whose first word starts with a dash from being read as a flag to the
-// runtime: `capsule exec -- --version` has to reach the program, not the
-// runtime's own `exec`.
+// without a runtime present.
+//
+// There is deliberately no `--` between the container and the command. It reads
+// like the safe thing to write, and it is wrong: `docker exec` stops parsing
+// flags at the container name, so a `--` after it is not a separator, it is the
+// program to run. `docker exec -i C -- echo hi` fails with `exec: "--":
+// executable file not found in $PATH`. The separator is also unnecessary, since
+// the same rule means a command starting with a dash already reaches the
+// container untouched.
 func execCommandArgs(target string, tty bool, command []string) []string {
 	args := []string{"exec", "-i"}
 	if tty {
 		args = append(args, "-t")
 	}
-	args = append(args, target, "--")
+	args = append(args, target)
 	return append(args, command...)
 }
 

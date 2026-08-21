@@ -89,3 +89,9 @@ templates in particular, are the ones worth covering.
 - **Nothing free-form reaches argv in flag position.** `image` is the only
   candidate and is validated against a leading `-`. Anything new that lands in
   argv before the image name needs the same treatment.
+- **Argv that guesses another program's parser needs a test that asks it.**
+  `internal/e2e` drives the real runtime for exactly this reason. A unit test
+  can assert the shape of an argv; only the runtime can say what it means. The
+  `--` in `capsule exec` passed its unit tests for two releases while being
+  broken in every real invocation, because the test encoded the same wrong
+  belief as the code.

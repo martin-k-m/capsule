@@ -8,6 +8,16 @@ All notable changes to capsule are documented here. The format follows
 
 ### Fixed
 
+- **`capsule exec` works again.** It has been broken against Docker since the
+  `--` separator was added: `docker exec` stops parsing its own flags at the
+  container name, so the `--` after it was not a separator but the program to
+  run, and every invocation failed with `exec: "--": executable file not found
+  in $PATH`. The separator was never needed, since the same rule means a command
+  starting with a dash already reaches the container. `capsule exec` is now
+  covered by `TestExecRunsACommandInARunningCapsule`, which drives a real
+  runtime; the unit tests that existed asserted the argv against the same wrong
+  belief as the code and could not fail.
+
 - **A `workdir` or `[persist]` target containing `:` is now rejected.** Both are
   pasted into a `-v` argument, which the container runtime splits on that
   character, so `workdir = "/src:ro"` did not name a directory: it mounted the
