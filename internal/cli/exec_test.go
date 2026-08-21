@@ -17,22 +17,24 @@ func TestExecCommandArgs(t *testing.T) {
 			name:    "no tty, plain command",
 			target:  "capsule-demo-abcd1234",
 			command: []string{"go", "test", "./..."},
-			want:    []string{"exec", "-i", "capsule-demo-abcd1234", "--", "go", "test", "./..."},
+			want:    []string{"exec", "-i", "capsule-demo-abcd1234", "go", "test", "./..."},
 		},
 		{
 			name:    "tty requested",
 			target:  "capsule-demo-abcd1234",
 			tty:     true,
 			command: []string{"bash"},
-			want:    []string{"exec", "-i", "-t", "capsule-demo-abcd1234", "--", "bash"},
+			want:    []string{"exec", "-i", "-t", "capsule-demo-abcd1234", "bash"},
 		},
 		{
-			// The whole reason for the `--`: a command whose first word starts
-			// with a dash must reach the program, not the runtime's own exec.
+			// A command whose first word starts with a dash is passed
+			// through as-is. `docker exec` stops parsing flags at the
+			// container name, so it reaches the program. Inserting a `--`
+			// here would make `--` itself the program.
 			name:    "command starting with a dash",
 			target:  "demo",
 			command: []string{"--version"},
-			want:    []string{"exec", "-i", "demo", "--", "--version"},
+			want:    []string{"exec", "-i", "demo", "--version"},
 		},
 	}
 	for _, tc := range cases {
@@ -55,6 +57,22 @@ func TestExecCommandArgsAlwaysKeepsStdinOpen(t *testing.T) {
 	}
 	if strings.Contains(strings.Join(args, " "), " -t ") {
 		t.Errorf("a non-interactive exec must not request a TTY: %v", args)
+	}
+}
+
+// A `--` between the container and the command is not a separator to
+// `docker exec`, it is the program to run, and it broke every `capsule exec`.
+// TestExecRunsACommandInARunningCapsule in internal/e2e is the test that would
+// have caught it; this one keeps the argv from regrowing the separator.
+func TestExecCommandArgsHasNoDashDashSeparator(t *testing.T) {
+	args := execCommandArgs("demo", false, []string{"echo", "hi"})
+	for i, a := range args {
+		if a == "--" {
+			t.Errorf("execCommandArgs put a %q at index %d: %v", "--", i, args)
+		}
+	}
+	if args[2] != "demo" || args[3] != "echo" {
+		t.Errorf("the command must follow the container directly, got %v", args)
 	}
 }
 
