@@ -31,7 +31,7 @@ jobs:
       # document is in hand rather than only in a log.
       - name: Upload any crashing input
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fuzz-corpus
           path: internal/runtime/testdata/fuzz/
