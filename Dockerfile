@@ -12,7 +12,7 @@
 #     -v /var/run/docker.sock:/var/run/docker.sock \
 #     -v "$PWD:$PWD" -w "$PWD" \
 #     ghcr.io/martin-k-m/capsule up
-FROM golang:1.24-alpine AS build
+FROM golang:1.27-alpine AS build
 WORKDIR /src
 
 # Nothing to download, since capsule has no third-party dependencies, but copying
@@ -25,7 +25,7 @@ RUN CGO_ENABLED=0 go build -trimpath \
       -ldflags "-s -w -X github.com/martin-k-m/capsule/internal/version.Current=${VERSION}" \
       -o /out/capsule ./cmd/capsule
 
-FROM alpine:3.20
+FROM alpine:3.24
 LABEL org.opencontainers.image.source="https://github.com/martin-k-m/capsule" \
       org.opencontainers.image.description="Lightweight, isolated development environments that disappear when you're done" \
       org.opencontainers.image.licenses="Apache-2.0"
